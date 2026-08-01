@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+
+# optional common ignores
+.env
+dist/
+build/
+coverage/
+
+# macOS
+.DS_Store
+
+# logs
+*.log
