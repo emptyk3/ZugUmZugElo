@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Counter Dummy",
-  description: "Stack-Test für die Elo-App",
+  title: "ZugUmZugElo",
+  description: "Rangliste und Partieerfassung für Zug um Zug",
 };
 
 export default function RootLayout({
@@ -15,8 +15,8 @@ export default function RootLayout({
           fontFamily: "system-ui, sans-serif",
           margin: 0,
           padding: 0,
-          background: "#0f172a",
-          color: "#f1f5f9",
+          background: "#f7f4ec",
+          color: "#17231e",
         }}
       >
         {children}
