@@ -7,7 +7,392 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Counter {
-  id    Int @id @default(1)
-  value Int @default(0)
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  EMAIL_UNVERIFIED
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  DELETED
+}
+
+enum GameStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  DELETED
+}
+
+enum GameReviewReason {
+  CREATOR_NOT_APPROVED
+  USER_REQUIRES_APPROVAL
+  BACKDATED
+  MANUAL_ADMIN_REVIEW
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum GameReportReason {
+  WRONG_POINTS
+  WRONG_MISSION
+  WRONG_TIEBREAK
+  WRONG_PLAYED_AT
+  WRONG_PLAYERS
+  WRONG_PHOTO
+  DUPLICATE_GAME
+  OTHER
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  DELETED
+  RESTORED
+  APPROVED
+  REJECTED
+  MERGED
+  SUSPENDED
+  REACTIVATED
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+
+  firstName String
+  lastName  String
+
+  role   UserRole   @default(USER)
+  status UserStatus @default(EMAIL_UNVERIFIED)
+
+  emailVerifiedAt DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+
+  requiresGameApproval  Boolean   @default(false)
+  canCreateGames        Boolean   @default(true)
+  gameEntryBlockedUntil DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  player Player?
+
+  createdPlayers Player[] @relation("PlayerCreatedBy")
+  createdGames   Game[]   @relation("GameCreatedBy")
+  deletedGames   Game[]   @relation("GameDeletedBy")
+
+  submittedClaims PlayerClaim[] @relation("ClaimSubmittedBy")
+  reviewedClaims  PlayerClaim[] @relation("ClaimReviewedBy")
+
+  submittedReports GameReport[] @relation("ReportSubmittedBy")
+  reviewedReports  GameReport[] @relation("ReportReviewedBy")
+
+  performedMerges PlayerMerge[] @relation("MergePerformedBy")
+  auditLogs       AuditLog[]    @relation("AuditActor")
+
+  approvedBy User?  @relation("UserApprovals", fields: [approvedById], references: [id])
+  approvals  User[] @relation("UserApprovals")
+
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@index([status])
+  @@index([role])
+}
+
+model Player {
+  id String @id @default(cuid())
+
+  alias String
+
+  initialRating Float
+  currentRating Float
+
+  isActive Boolean @default(true)
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdByUserId String?
+  createdByUser   User?   @relation("PlayerCreatedBy", fields: [createdByUserId], references: [id])
+
+  mergedIntoPlayerId String?
+  mergedIntoPlayer   Player?  @relation("PlayerMergeTarget", fields: [mergedIntoPlayerId], references: [id])
+  mergedPlayers      Player[] @relation("PlayerMergeTarget")
+
+  mergedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  aliases        PlayerAlias[]
+  participations GameParticipant[]
+  claimTargets   PlayerClaim[]
+
+  mergeSources PlayerMerge[] @relation("MergeSource")
+  mergeTargets PlayerMerge[] @relation("MergeTarget")
+
+  @@index([alias])
+  @@index([currentRating])
+  @@index([isActive])
+}
+
+model PlayerAlias {
+  id String @id @default(cuid())
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  alias String
+
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([alias])
+  @@index([playerId])
+}
+
+model Mission {
+  id String @id @default(cuid())
+
+  name      String  @unique
+  sortOrder Int     @unique
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participations GameParticipant[]
+}
+
+model Game {
+  id String @id @default(cuid())
+
+  playedAt DateTime
+
+  photoUrl       String?
+  photoStorageId String?
+
+  status GameStatus @default(PENDING)
+
+  ratingSystemVersion Int   @default(1)
+  kFactor             Float @default(20)
+
+  createdByUserId String
+  createdByUser   User   @relation("GameCreatedBy", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  confirmedAt DateTime?
+
+  deletedAt       DateTime?
+  deletedByUserId String?
+  deletedByUser   User?     @relation("GameDeletedBy", fields: [deletedByUserId], references: [id])
+
+  participants  GameParticipant[]
+  reviewReasons GameReviewFlag[]
+  reports       GameReport[]
+
+  @@index([playedAt])
+  @@index([status])
+  @@index([createdByUserId])
+}
+
+model GameParticipant {
+  id String @id @default(cuid())
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  points Int
+
+  placement    Int
+  tiebreakRank Int?
+
+  missionId String
+  mission   Mission @relation(fields: [missionId], references: [id])
+
+  missionKept Boolean
+
+  ratingBefore Float
+  ratingChange Float
+  ratingAfter  Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, playerId])
+  @@index([playerId])
+  @@index([missionId])
+  @@index([placement])
+}
+
+model GameReviewFlag {
+  id String @id @default(cuid())
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  reason GameReviewReason
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@unique([gameId, reason])
+  @@index([reason])
+}
+
+model GameReport {
+  id String @id @default(cuid())
+
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id])
+
+  submittedByUserId String
+  submittedByUser   User   @relation("ReportSubmittedBy", fields: [submittedByUserId], references: [id])
+
+  reason  GameReportReason
+  comment String?
+
+  status ReportStatus @default(OPEN)
+
+  reviewedByUserId String?
+  reviewedByUser   User?   @relation("ReportReviewedBy", fields: [reviewedByUserId], references: [id])
+
+  reviewedAt DateTime?
+  resolution String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, submittedByUserId])
+  @@index([status])
+}
+
+model PlayerClaim {
+  id String @id @default(cuid())
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  submittedByUserId String
+  submittedByUser   User   @relation("ClaimSubmittedBy", fields: [submittedByUserId], references: [id])
+
+  status ClaimStatus @default(PENDING)
+
+  reviewedByUserId String?
+  reviewedByUser   User?   @relation("ClaimReviewedBy", fields: [reviewedByUserId], references: [id])
+
+  reviewedAt DateTime?
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, submittedByUserId])
+  @@index([status])
+}
+
+model PlayerMerge {
+  id String @id @default(cuid())
+
+  sourcePlayerId String
+  sourcePlayer   Player @relation("MergeSource", fields: [sourcePlayerId], references: [id])
+
+  targetPlayerId String
+  targetPlayer   Player @relation("MergeTarget", fields: [targetPlayerId], references: [id])
+
+  performedByUserId String
+  performedByUser   User   @relation("MergePerformedBy", fields: [performedByUserId], references: [id])
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([sourcePlayerId])
+  @@index([targetPlayerId])
+}
+
+model EmailVerificationToken {
+  id String @id @default(cuid())
+
+  tokenHash String @unique
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id String @id @default(cuid())
+
+  tokenHash String @unique
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorUserId String?
+  actorUser   User?   @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  action AuditAction
+
+  entityType String
+  entityId   String
+
+  oldData Json?
+  newData Json?
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([createdAt])
 }
