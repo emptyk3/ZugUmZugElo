@@ -23,11 +23,12 @@ function formatRatingChange(value: number) {
   return `${normalized > 0 ? "+" : ""}${normalized}`;
 }
 
-async function loadGames() {
+async function loadGames(playerId?: string) {
   return prisma.game.findMany({
     where: {
       status: GameStatus.CONFIRMED,
       deletedAt: null,
+      participants: playerId ? { some: { playerId } } : undefined,
     },
     orderBy: [
       { playedAt: "desc" },
@@ -56,14 +57,15 @@ async function loadGames() {
   });
 }
 
-export default async function GamesPage() {
+export default async function GamesPage({ searchParams }: { searchParams: Promise<{ spieler?: string }> }) {
+  const { spieler } = await searchParams;
   let games: Awaited<ReturnType<typeof loadGames>> = [];
   let loadError = false;
   const currentUser = await getCurrentUser();
   const admin = currentUser ? isAdmin(currentUser) : false;
 
   try {
-    games = await loadGames();
+    games = await loadGames(spieler);
   } catch (error) {
     console.error("Partienhistorie konnte nicht geladen werden:", error);
     loadError = true;
