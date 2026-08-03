@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import styles from "../page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import GamePhoto from "@/components/GamePhoto";
+import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,8 @@ export default async function GameDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const currentUser = await getCurrentUser();
+  const admin = currentUser ? isAdmin(currentUser) : false;
   const game = await prisma.game.findFirst({
     where: {
       id,
@@ -76,6 +80,7 @@ export default async function GameDetailPage({
           <span>{game.participants.length} Spieler</span>
           <span>{hasPhoto ? "Foto vorhanden" : "Ältere Partie ohne Foto"}</span>
         </div>
+        {admin && <Link className={styles.adminEditButton} href={`/admin/partien/${id}?bearbeiten=1`}>Partie bearbeiten</Link>}
       </header>
 
       <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${formatDate(game.playedAt)}`} className={styles.detailPhoto} />

@@ -6,11 +6,11 @@ import { updateGame } from "./actions";
 
 type Option = { id: string; label: string; active?: boolean };
 type Row = { playerId: string; points: string; missionId: string; missionKept: boolean; tiebreakRank: string };
-type Props = { gameId: string; playedAt: string; hasPhoto: boolean; participants: Row[]; players: Option[]; missions: Option[] };
+type Props = { gameId: string; playedAt: string; hasPhoto: boolean; participants: Row[]; players: Option[]; missions: Option[]; initialOpen?: boolean };
 
 export default function GameEditor(props: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(props.initialOpen));
   const [playedAt, setPlayedAt] = useState(props.playedAt);
   const [rows, setRows] = useState(props.participants);
   const [photo, setPhoto] = useState<File | null>(null);

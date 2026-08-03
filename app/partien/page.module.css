@@ -37,7 +37,7 @@
 .cardPhoto { width: min(420px, calc(100% - 48px)); margin: 20px 24px; }
 
 .participants { margin: 0; padding: 0; list-style: none; }
-.participants li { display: grid; grid-template-columns: 36px minmax(0, 1fr) 100px 100px; gap: 13px; align-items: center; padding: 13px 24px; border-top: 1px solid #ebe8e0; }
+.participants li { display: grid; grid-template-columns: 36px minmax(0, 1fr) 100px 220px; gap: 13px; align-items: center; padding: 13px 24px; border-top: 1px solid #ebe8e0; }
 .participants li:first-child { border-top: 0; }
 .place, .detailPlace { display: grid; place-items: center; border-radius: 50%; color: white; background: var(--green); font-family: Georgia, serif; font-weight: 700; }
 .place { width: 30px; height: 30px; font-size: 14px; }
@@ -52,8 +52,13 @@
 .positive, .negative { font-family: Georgia, serif; font-size: 15px; text-align: right; }
 .positive { color: #247148; }
 .negative { color: #a13d36; }
-.cardFooter { display: flex; justify-content: flex-end; padding: 13px 24px; border-top: 1px solid var(--line); background: #f5f3ed; }
+.ratingCell { display: grid; grid-template-columns: repeat(3, minmax(54px, 1fr)); gap: 10px; align-items: center; text-align: right; }
+.ratingCell span { display: grid; gap: 2px; }
+.ratingCell small { color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.ratingCell b { color: var(--ink); font-family: Georgia, serif; font-size: 15px; }
+.cardFooter { display: flex; justify-content: flex-end; gap: 10px; padding: 13px 24px; border-top: 1px solid var(--line); background: #f5f3ed; }
 .cardFooter a { display: inline-flex; align-items: center; gap: 8px; color: var(--green); font-size: 12px; font-weight: 900; text-decoration: none; }
+.cardFooter .adminEditLink, .adminEditButton { padding: 8px 12px; border-radius: 8px; color: #fff; background: var(--green); }
 
 .stateMessage { display: grid; width: min(1040px, 100%); min-height: 250px; margin: 0 auto; place-items: center; align-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 253, 248, .94); text-align: center; }
 .stateMessage strong { font-family: Georgia, serif; font-size: 23px; }
@@ -64,6 +69,7 @@
 .detailHero h1 { max-width: 800px; font-size: clamp(36px, 6vw, 61px); line-height: 1.02; }
 .detailMeta { display: flex; gap: 9px; margin-top: 20px; }
 .detailMeta span { padding: 7px 10px; border-radius: 99px; color: var(--muted); background: rgba(255, 255, 255, .62); font-size: 10px; font-weight: 800; }
+.adminEditButton { display: inline-block; margin-top: 16px; font-size: 12px; font-weight: 900; text-decoration: none; }
 .detailPhoto { width: min(1040px, 100%); max-height: 580px; margin: 0 auto 24px; }
 .detailCard { width: min(1040px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid rgba(82, 91, 85, .2); border-radius: 19px; background: rgba(255, 253, 248, .96); box-shadow: 0 18px 50px rgba(35, 45, 39, .075); }
 .detailHeading { padding: 24px 27px 19px; border-bottom: 1px solid var(--line); }
@@ -90,7 +96,7 @@
   .cardMeta { justify-content: flex-start; }
   .participants li { grid-template-columns: 32px minmax(0, 1fr) auto; padding: 13px 17px; }
   .points { grid-column: 2; margin-top: -7px; text-align: left; }
-  .participants .positive, .participants .negative { grid-column: 3; grid-row: 1 / span 2; }
+  .ratingCell { grid-column: 3; grid-row: 1 / span 2; }
   .cardFooter { padding-inline: 18px; }
   .detailHero { padding-top: 28px; }
   .detailParticipants li { grid-template-columns: 42px minmax(0, 1fr) auto; padding: 16px 18px; }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import GamePhoto from "@/components/GamePhoto";
+import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/policy";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,9 @@ async function loadGames() {
           id: true,
           placement: true,
           points: true,
+          ratingBefore: true,
           ratingChange: true,
+          ratingAfter: true,
           missionKept: true,
           player: { select: { alias: true, user: { select: { profileImageUrl: true } } } },
           mission: { select: { name: true } },
@@ -55,6 +59,8 @@ async function loadGames() {
 export default async function GamesPage() {
   let games: Awaited<ReturnType<typeof loadGames>> = [];
   let loadError = false;
+  const currentUser = await getCurrentUser();
+  const admin = currentUser ? isAdmin(currentUser) : false;
 
   try {
     games = await loadGames();
@@ -125,14 +131,17 @@ export default async function GamesPage() {
                         </div>
                       </div>
                       <span className={styles.points}>{participant.points} <small>Pkt.</small></span>
-                      <strong className={participant.ratingChange >= 0 ? styles.positive : styles.negative}>
-                        {formatRatingChange(participant.ratingChange)} Elo
-                      </strong>
+                      <div className={styles.ratingCell}>
+                        <span><small>Elo alt</small><b>{Math.round(participant.ratingBefore)}</b></span>
+                        <span><small>± Elo</small><strong className={participant.ratingChange >= 0 ? styles.positive : styles.negative}>{formatRatingChange(participant.ratingChange)}</strong></span>
+                        <span><small>Elo neu</small><b>{Math.round(participant.ratingAfter)}</b></span>
+                      </div>
                     </li>
                   ))}
                 </ol>
 
                 <footer className={styles.cardFooter}>
+                  {admin && <Link className={styles.adminEditLink} href={`/admin/partien/${game.id}?bearbeiten=1`}>Partie bearbeiten</Link>}
                   <Link href={`/partien/${game.id}`}>Details <span aria-hidden="true">→</span></Link>
                 </footer>
               </article>

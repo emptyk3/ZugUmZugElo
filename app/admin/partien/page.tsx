@@ -1,2 +1,37 @@
-import { GameStatus } from "@prisma/client";import { prisma } from "@/lib/prisma";import { requireAdmin } from "@/lib/auth/session";import { confirmGame,rejectGame } from "../actions";
-export const dynamic="force-dynamic";export default async function Page({searchParams}:{searchParams:Promise<{status?:string}>}){await requireAdmin();const {status="ALL"}=await searchParams;const validStatus=Object.values(GameStatus).includes(status as GameStatus)?status as GameStatus:undefined;const games=await prisma.game.findMany({where:{status:validStatus,deletedAt:null},orderBy:[{playedAt:"desc"},{createdAt:"desc"}],include:{createdByUser:{select:{email:true,player:{select:{alias:true}}}},reviewReasons:true,participants:{orderBy:{placement:"asc"},include:{player:{select:{alias:true}}}}}});return <main className="account-shell wide"><h1>Partieverwaltung</h1><form className="filter-bar"><select name="status" defaultValue={status}><option value="ALL">Alle Status</option>{Object.values(GameStatus).filter(s=>s!=="DELETED").map(s=><option key={s}>{s}</option>)}</select><button>Filtern</button></form><p className="muted">{games.length} Partien</p><div className="data-list">{games.map(g=><article className="data-row" key={g.id}><div className="row-head"><h2>{g.playedAt.toLocaleString("de-AT")}</h2><span className={`status status-${g.status.toLowerCase()}`}>{g.status}</span></div><p>Ersteller: {g.createdByUser.player?.alias??g.createdByUser.email}</p><ol>{g.participants.map(p=><li key={p.id}>{p.placement}. {p.player.alias} · {p.points} Punkte</li>)}</ol><div className="actions"><a className="button-link" href={`/admin/partien/${g.id}`}>Partie öffnen</a>{g.status==="PENDING"&&<><form action={confirmGame}><input type="hidden" name="gameId" value={g.id}/><button>Bestätigen</button></form><form action={rejectGame}><input type="hidden" name="gameId" value={g.id}/><input type="hidden" name="note" value="In der Partieverwaltung abgelehnt"/><button>Ablehnen</button></form></>}</div></article>)}</div></main>}
+import { GameStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth/session";
+import { confirmGame, rejectGame } from "../actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireAdmin();
+  const { status = "ALL" } = await searchParams;
+  const validStatus = Object.values(GameStatus).includes(status as GameStatus) ? status as GameStatus : undefined;
+  const games = await prisma.game.findMany({
+    where: { status: validStatus, deletedAt: null },
+    orderBy: [{ playedAt: "desc" }, { createdAt: "desc" }],
+    include: {
+      createdByUser: { select: { email: true, player: { select: { alias: true } } } },
+      reviewReasons: true,
+      participants: { orderBy: { placement: "asc" }, include: { player: { select: { alias: true } } } },
+    },
+  });
+
+  return <main className="account-shell wide">
+    <h1>Partieverwaltung</h1>
+    <form className="filter-bar"><select name="status" defaultValue={status}><option value="ALL">Alle Status</option>{Object.values(GameStatus).filter((value) => value !== "DELETED").map((value) => <option key={value}>{value}</option>)}</select><button>Filtern</button></form>
+    <p className="muted">{games.length} Partien</p>
+    <div className="data-list">{games.map((game) => <article className="data-row" key={game.id}>
+      <div className="row-head"><h2>{game.playedAt.toLocaleString("de-AT")}</h2><span className={`status status-${game.status.toLowerCase()}`}>{game.status}</span></div>
+      <p>Ersteller: {game.createdByUser.player?.alias ?? game.createdByUser.email}</p>
+      <ol>{game.participants.map((participant) => <li key={participant.id}>{participant.placement}. {participant.player.alias} · {participant.points} Punkte</li>)}</ol>
+      <div className="actions">
+        <a className="button-link" href={`/admin/partien/${game.id}`}>Partie öffnen</a>
+        <a className="button-link" href={`/admin/partien/${game.id}?bearbeiten=1`}>Partie bearbeiten</a>
+        {game.status === "PENDING" && <><form action={confirmGame}><input type="hidden" name="gameId" value={game.id} /><button>Bestätigen</button></form><form action={rejectGame}><input type="hidden" name="gameId" value={game.id} /><input type="hidden" name="note" value="In der Partieverwaltung abgelehnt" /><button>Ablehnen</button></form></>}
+      </div>
+    </article>)}</div>
+  </main>;
+}
