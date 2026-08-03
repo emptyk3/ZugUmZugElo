@@ -1,1 +1,1 @@
-.player-with-avatar{display:flex;align-items:center;gap:.75rem}.player-with-avatar h2{margin:0}
+.player-with-avatar{display:flex;align-items:center;gap:.75rem;color:inherit;text-decoration:none}.player-with-avatar h2{margin:0}.player-with-avatar:hover h2{text-decoration:underline}

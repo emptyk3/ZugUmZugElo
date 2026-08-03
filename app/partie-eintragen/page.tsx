@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState, useTransition } from "react"
 import { createPlayer, getGameFormOptions, saveGame } from "./actions";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { reviewReasonLabel } from "@/lib/games/review-labels";
 
 type PlayerOption = { id: string; alias: string; user?: { profileImageUrl: string | null } | null };
@@ -451,7 +452,7 @@ export default function AddGamePage() {
                       <div className={styles.cardTitle}>
                         <span>{String(index + 1).padStart(2, "0")}</span>
                         <PlayerAvatar imageUrl={participant.imageUrl} alias={participant.player || `Teilnehmer ${index + 1}`} size={38} />
-                        <h3>{participant.player || `Teilnehmer ${index + 1}`}</h3>
+                        <h3>{participant.playerId ? <PlayerAliasLink playerId={participant.playerId} alias={participant.player} /> : `Teilnehmer ${index + 1}`}</h3>
                       </div>
                       <div className={styles.autocomplete}>
                         <label className={styles.field}>
@@ -539,7 +540,7 @@ export default function AddGamePage() {
                   <li key={participant.id}>
                     <span className={styles.place}>{participant.place}</span>
                     <PlayerAvatar imageUrl={participant.imageUrl} alias={participant.player || "Noch offen"} size={38} />
-                    <div><strong>{participant.player || "Noch offen"}</strong><small>{missionName(participant.mission)}{!participant.missionKept ? " · nicht behalten" : ""}</small></div>
+                    <div><strong>{participant.playerId ? <PlayerAliasLink playerId={participant.playerId} alias={participant.player} /> : "Noch offen"}</strong><small>{missionName(participant.mission)}{!participant.missionKept ? " · nicht behalten" : ""}</small></div>
                     <b>{participant.points || "–"}<small> Pkt.</small></b>
                   </li>
                 ))}
@@ -576,7 +577,7 @@ export default function AddGamePage() {
                   {group.map((participant) => (
                     <label key={participant.id}>
                       <PlayerAvatar imageUrl={participant.imageUrl} alias={participant.player} size={34} />
-                      <span>{participant.player}</span>
+                      <span><PlayerAliasLink playerId={participant.playerId} alias={participant.player} /></span>
                       <select value={tiebreakRanks[participant.id] ?? ""} onChange={(event) => setTiebreakRanks((current) => ({ ...current, [participant.id]: event.target.value }))}>
                         <option value="">Rang wählen</option>
                         {Array.from({ length: group.length }, (_, index) => index + 1).map((rank) => <option key={rank} value={rank}>{rank}. im Gleichstand</option>)}
@@ -596,7 +597,7 @@ export default function AddGamePage() {
                 <li key={participant.id}>
                   <span className={styles.reviewPlace}>{participant.place}</span>
                   <PlayerAvatar imageUrl={participant.imageUrl} alias={participant.player} size={42} />
-                  <div className={styles.reviewPlayer}><strong>{participant.player}</strong><small>{missionName(participant.mission)}{!participant.missionKept && <em>Mission nicht behalten</em>}</small></div>
+                  <div className={styles.reviewPlayer}><strong><PlayerAliasLink playerId={participant.playerId} alias={participant.player} /></strong><small>{missionName(participant.mission)}{!participant.missionKept && <em>Mission nicht behalten</em>}</small></div>
                   <b>{participant.points} <small>Punkte</small></b>
                 </li>
               ))}
@@ -626,7 +627,7 @@ export default function AddGamePage() {
                 <span className={styles.reviewPlace}>{result.placement}</span>
                 <PlayerAvatar imageUrl={result.imageUrl} alias={result.alias} size={42} />
                 <div>
-                  <strong>{result.alias}</strong>
+                  <strong><PlayerAliasLink playerId={result.playerId} alias={result.alias} /></strong>
                   <small>{formatRating(result.ratingBefore)} → {formatRating(result.ratingAfter)} Elo</small>
                 </div>
                 <b className={result.ratingChange >= 0 ? styles.positiveChange : styles.negativeChange}>

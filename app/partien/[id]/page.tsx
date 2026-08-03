@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import styles from "../page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 import GamePhoto from "@/components/GamePhoto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/policy";
@@ -54,7 +55,7 @@ export default async function GameDetailPage({
           ratingChange: true,
           ratingAfter: true,
           missionKept: true,
-          player: { select: { alias: true, user: { select: { profileImageUrl: true } } } },
+          player: { select: { id: true, alias: true, user: { select: { profileImageUrl: true } } } },
           mission: { select: { name: true } },
         },
       },
@@ -100,7 +101,7 @@ export default async function GameDetailPage({
             return (
               <li key={participant.id}>
                 <span className={styles.detailPlace}>{participant.placement}</span>
-                <div className={styles.detailIdentity}>
+                <PlayerAliasLink playerId={participant.player.id} alias={participant.player.alias} className={styles.detailIdentity}>
                   <PlayerAvatar imageUrl={participant.player.user?.profileImageUrl} alias={participant.player.alias} size={42} />
                   <strong>{participant.player.alias}</strong>
                   <small>
@@ -108,7 +109,7 @@ export default async function GameDetailPage({
                     {!participant.missionKept && <em>Mission nicht behalten</em>}
                     {participant.tiebreakRank && <span>Tiebreak: {participant.tiebreakRank}</span>}
                   </small>
-                </div>
+                </PlayerAliasLink>
                 <div className={styles.detailScore}>
                   <strong>{participant.points}</strong>
                   <span>Punkte</span>

@@ -62,3 +62,22 @@ test("eingeloggte Nutzer können eine maximal 100 Zeichen lange Partiemeldung se
   assert.ok(admin.includes("Meldungen zu dieser Partie"));
   assert.ok(admin.includes("Partie direkt bearbeiten"));
 });
+
+test("öffentliche Spielerprofile zeigen ausschließlich aktive Spieler und bestätigte Partien", () => {
+  const profile = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  assert.ok(profile.includes("isActive: true"));
+  assert.ok(profile.includes("deletedAt: null"));
+  assert.ok(profile.includes("mergedIntoPlayerId: null"));
+  assert.ok(profile.includes("status: GameStatus.CONFIRMED"));
+  assert.ok(profile.includes("currentRating"));
+  assert.ok(profile.includes("Partieverlauf"));
+  assert.equal(profile.includes("email: true"), false);
+});
+
+test("zentrale Alias-Verlinkung wird in Rangliste, Partien und Partieformular verwendet", () => {
+  const link = readFileSync("components/PlayerAliasLink.tsx", "utf8");
+  assert.ok(link.includes("/spieler/${playerId}"));
+  for (const file of ["app/page.tsx", "app/partien/page.tsx", "app/partien/[id]/page.tsx", "app/partie-eintragen/page.tsx", "app/admin/spieler/page.tsx", "app/admin/partien/page.tsx", "app/mein-profil/page.tsx"]) {
+    assert.ok(readFileSync(file, "utf8").includes("PlayerAliasLink"), `${file} verwendet keinen zentralen Spielerlink`);
+  }
+});

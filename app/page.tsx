@@ -2,6 +2,7 @@ import { GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 
 export const dynamic = "force-dynamic";
 
@@ -95,10 +96,10 @@ export default async function Home() {
                       <span className={styles.rank}>{index + 1}</span>
                     </td>
                     <td data-label="Spieler">
-                      <div className={styles.playerIdentity}>
+                      <PlayerAliasLink playerId={player.id} alias={player.alias} className={styles.playerIdentity}>
                         <PlayerAvatar imageUrl={player.user?.profileImageUrl} alias={player.alias} size={44} className={styles.avatar} />
                         <strong>{player.alias}</strong>
-                      </div>
+                      </PlayerAliasLink>
                     </td>
                     <td data-label="Partien">
                       <span className={styles.games}>{player._count.participations}</span>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/policy";
 
@@ -47,7 +48,7 @@ async function loadGames() {
           ratingChange: true,
           ratingAfter: true,
           missionKept: true,
-          player: { select: { alias: true, user: { select: { profileImageUrl: true } } } },
+          player: { select: { id: true, alias: true, user: { select: { profileImageUrl: true } } } },
           mission: { select: { name: true } },
         },
       },
@@ -117,7 +118,7 @@ export default async function GamesPage() {
                   {game.participants.map((participant) => (
                     <li key={participant.id}>
                       <span className={styles.place}>{participant.placement}</span>
-                      <div className={styles.identity}>
+                      <PlayerAliasLink playerId={participant.player.id} alias={participant.player.alias} className={styles.identity}>
                         <PlayerAvatar imageUrl={participant.player.user?.profileImageUrl} alias={participant.player.alias} size={40} />
                         <div>
                         <strong>{participant.player.alias}</strong>
@@ -126,7 +127,7 @@ export default async function GamesPage() {
                           {!participant.missionKept && <em>Mission nicht behalten</em>}
                         </small>
                         </div>
-                      </div>
+                      </PlayerAliasLink>
                       <span className={styles.points}>{participant.points} <small>Pkt.</small></span>
                       <div className={styles.ratingCell}>
                         <span><small>Elo alt</small><b>{Math.round(participant.ratingBefore)}</b></span>

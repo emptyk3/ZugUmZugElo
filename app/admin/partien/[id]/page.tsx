@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { confirmGame, rejectGame } from "../../actions";
 import GamePhoto from "@/components/GamePhoto";
 import GameEditor from "./GameEditor";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       missions={missions.filter((mission) => allowedMissionIds.has(mission.id)).map((mission) => ({ id: mission.id, label: mission.name, active: mission.isActive }))} />
     <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${game.playedAt.toLocaleString("de-AT")}`} />
     <div className="data-list">{game.participants.map((participant) => <article className="data-row" key={participant.id}>
-      <h2>{participant.placement}. <a href={`/admin/spieler/${participant.player.id}`}>{participant.player.alias}</a></h2>
+      <h2>{participant.placement}. <PlayerAliasLink playerId={participant.player.id} alias={participant.player.alias} /></h2>
       <p>{participant.points} Punkte · {participant.mission.name}{!participant.missionKept ? " · Mission nicht behalten" : ""}{participant.tiebreakRank ? ` · Tiebreak ${participant.tiebreakRank}` : ""}</p>
       <p>Elo: {Math.round(participant.ratingBefore)} → {Math.round(participant.ratingAfter)} ({participant.ratingChange >= 0 ? "+" : ""}{Math.round(participant.ratingChange)})</p>
     </article>)}</div>

@@ -2,6 +2,7 @@ import { GameStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/session";
 import { confirmGame, rejectGame } from "../actions";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       createdByUser: { select: { email: true, player: { select: { alias: true } } } },
       reviewReasons: true,
       _count: { select: { reports: { where: { status: "OPEN" } } } },
-      participants: { orderBy: { placement: "asc" }, include: { player: { select: { alias: true } } } },
+      participants: { orderBy: { placement: "asc" }, include: { player: { select: { id: true, alias: true } } } },
     },
   });
 
@@ -28,7 +29,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       <div className="row-head"><h2>{game.playedAt.toLocaleString("de-AT")}</h2><span className={`status status-${game.status.toLowerCase()}`}>{game.status}</span></div>
       <p>Ersteller: {game.createdByUser.player?.alias ?? game.createdByUser.email}</p>
       {game._count.reports > 0 && <p className="form-error"><strong>{game._count.reports} offene {game._count.reports === 1 ? "Meldung" : "Meldungen"}</strong></p>}
-      <ol>{game.participants.map((participant) => <li key={participant.id}>{participant.placement}. {participant.player.alias} · {participant.points} Punkte</li>)}</ol>
+      <ol>{game.participants.map((participant) => <li key={participant.id}>{participant.placement}. <PlayerAliasLink playerId={participant.player.id} alias={participant.player.alias} /> · {participant.points} Punkte</li>)}</ol>
       <div className="actions">
         <a className="button-link" href={`/admin/partien/${game.id}`}>Partie öffnen</a>
         <a className="button-link" href={`/admin/partien/${game.id}?bearbeiten=1`}>Partie bearbeiten</a>

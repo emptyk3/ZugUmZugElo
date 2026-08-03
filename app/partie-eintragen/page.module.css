@@ -116,6 +116,8 @@
 .reviewPlace { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; color: white; background: var(--green); font-family: Georgia, serif; font-size: 20px; }
 .reviewPlayer { display: grid; min-width: 0; gap: 4px; }
 .reviewPlayer strong { font-size: 15px; }
+.participantCard h3 a, .ranking a, .tieGroup a, .reviewPlayer a, .eloResults a { color: inherit; text-decoration: none; }
+.participantCard h3 a:hover, .ranking a:hover, .tieGroup a:hover, .reviewPlayer a:hover, .eloResults a:hover { text-decoration: underline; }
 .reviewPlayer small { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; }
 .reviewPlayer em { padding: 2px 7px; border-radius: 99px; color: #8b4924; background: #ffead8; font-style: normal; font-weight: 800; }
 .reviewRanking b { font-family: Georgia, serif; font-size: 23px; }

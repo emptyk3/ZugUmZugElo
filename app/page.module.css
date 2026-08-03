@@ -165,6 +165,8 @@
   display: flex;
   align-items: center;
   gap: 13px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .avatar {
