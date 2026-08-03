@@ -55,27 +55,16 @@ export default async function Home() {
         <a className={styles.navLink} href="/partie-eintragen">Partie eintragen</a>
       </nav>
 
-      <header className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>Öffentliche Rangliste</p>
-          <h1>Wer führt die Strecke an?</h1>
-          <p className={styles.intro}>
-            Die aktuellen Elo-Werte aller aktiven Spieler – berechnet aus bestätigten Partien.
-          </p>
-        </div>
-        <div className={styles.playerCount}>
-          <strong>{players.length}</strong>
-          <span>aktive Spieler</span>
-        </div>
-      </header>
-
       <section className={styles.leaderboard} aria-labelledby="leaderboard-title">
         <div className={styles.tableHeading}>
           <div>
             <span>Stand jetzt</span>
             <h2 id="leaderboard-title">Rangliste</h2>
           </div>
-          <p>Elo wird für die Anzeige auf ganze Zahlen gerundet.</p>
+          <div className={styles.playerCount} aria-label={`${players.length} aktive Spieler`}>
+            <strong>{players.length}</strong>
+            <span>aktive Spieler</span>
+          </div>
         </div>
 
         {loadError ? (
@@ -125,10 +114,6 @@ export default async function Home() {
         )}
       </section>
 
-      <footer className={styles.footer}>
-        <span>Öffentlich sichtbar · keine Anmeldung erforderlich</span>
-        <a href="/partie-eintragen">Neue Partie erfassen →</a>
-      </footer>
     </main>
   );
 }
