@@ -6,6 +6,7 @@ import { calculateMultiplayerElo, ELO_K_FACTOR } from "@/lib/elo";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { gameSubmissionPolicy } from "@/lib/auth/policy";
+import { withStoredImageLifecycle,type StoredImage } from "@/lib/storage/images";
 
 type SaveParticipantInput = {
   playerId: string;
@@ -126,7 +127,7 @@ function validateInput(input: SaveGameInput) {
   return { playedAt, playerIds };
 }
 
-async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typeof requireUser>>) {
+async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typeof requireUser>>, photo:StoredImage|null) {
   const { playedAt, playerIds } = validateInput(input);
   const missionIds = [...new Set(input.participants.map(({ missionId }) => missionId.trim()))];
 
@@ -183,6 +184,8 @@ async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typ
           ratingSystemVersion: 1,
           kFactor: ELO_K_FACTOR,
           createdByUserId: creator.id,
+          photoUrl: photo?.url,
+          photoStorageId: photo?.storageId,
           reviewReasons: reviewReasons.length ? { create: reviewReasons.map((reason) => ({ reason })) } : undefined,
         },
         select: { id: true },
@@ -237,16 +240,16 @@ async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typ
   );
 }
 
-export async function saveGame(input: SaveGameInput) {
+export async function saveGame(input: SaveGameInput, photoFile?:File|null) {
   try {
     const creator = await requireUser("/partie-eintragen");
-    const savedGame = await persistGame(input, creator);
+    const savedGame = photoFile ? await withStoredImageLifecycle(photoFile,"games",(photo)=>persistGame(input,creator,photo)) : await persistGame(input,creator,null);
     revalidatePath("/");
     return savedGame;
   } catch (error) {
     console.error("Partie konnte nicht gespeichert werden:", error);
     return {
-      error: error instanceof Error ? error.message : "Die Partie konnte nicht gespeichert werden.",
+      error: process.env.NODE_ENV === "production" ? "Die Partie konnte nicht gespeichert werden. Bitte versuche es erneut." : error instanceof Error ? error.message : "Die Partie konnte nicht gespeichert werden.",
     };
   }
 }

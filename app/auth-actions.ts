@@ -6,8 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { hashPassword, validatePassword, verifyPassword } from "@/lib/auth/password";
 import { createSecureToken, hashToken } from "@/lib/auth/tokens";
-import { sendAccountLink } from "@/lib/auth/mail";
+import { mailDeliveryConfigured, sendAccountLink } from "@/lib/auth/mail";
 import { mayLogin } from "@/lib/auth/policy";
+import { emailVerificationRequired,registrationInitialStatus } from "@/lib/config";
 
 export type FormState = { error?: string; success?: string };
 const normalizeEmail = (value: string) => value.trim().toLocaleLowerCase("en-US");
@@ -27,13 +28,14 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
   const passwordError = validatePassword(password); if (passwordError) return { error: passwordError };
   if (!['beginner', 'advanced'].includes(level)) return { error: "Ungültiges Startniveau." };
   const passwordHash = await hashPassword(password);
-  const { token, tokenHash } = createSecureToken();
+  const verificationRequired = emailVerificationRequired();
+  const verification = verificationRequired ? createSecureToken() : null;
   let existingPlayerClaimCreated = false;
   try {
     await prisma.$transaction(async (tx) => {
       const aliasCollision = await tx.player.findFirst({ where: { alias: { equals: alias, mode: "insensitive" }, isActive: true, deletedAt: null, mergedIntoPlayerId: null }, select: { id: true, userId: true, _count: { select: { claimTargets: { where: { status: "PENDING" } } } } } });
       if (aliasCollision?.userId || (aliasCollision?._count.claimTargets ?? 0) > 0) throw new Error("Dieser Spieler ist bereits einem Benutzer zugeordnet oder wird bereits beansprucht.");
-      const user = await tx.user.create({ data: { email, passwordHash, firstName, lastName, status: UserStatus.EMAIL_UNVERIFIED } });
+      const user = await tx.user.create({ data: { email, passwordHash, firstName, lastName, status: registrationInitialStatus(), emailVerifiedAt: verificationRequired ? null : new Date() } });
       if (aliasCollision) {
         await tx.playerClaim.create({ data: { playerId: aliasCollision.id, submittedByUserId: user.id, status: "PENDING" } });
         existingPlayerClaimCreated = true;
@@ -41,10 +43,11 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
         const rating = level === "advanced" ? 1500 : 1200;
         await tx.player.create({ data: { alias, initialRating: rating, currentRating: rating, userId: user.id, aliases: { create: { alias } } } });
       }
-      await tx.emailVerificationToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+      if (verification) await tx.emailVerificationToken.create({ data: { userId: user.id, tokenHash: verification.tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await sendAccountLink("email-verification", email, "/email-bestaetigen", token);
-    return { success: existingPlayerClaimCreated ? "Dieser Spieler existiert bereits. Möchtest du diesen Spieler beanspruchen? Der Claim wurde zur Adminprüfung angelegt. Bitte bestätige deine E-Mail-Adresse." : "Registrierung erfolgreich. Bitte bestätige deine E-Mail-Adresse." };
+    if (verification) await sendAccountLink("email-verification", email, "/email-bestaetigen", verification.token);
+    const nextStep = verificationRequired ? "Bitte bestätige deine E-Mail-Adresse." : "Du kannst dich jetzt anmelden. Dein Konto wartet auf die Adminfreigabe.";
+    return { success: existingPlayerClaimCreated ? `Dieser Spieler existiert bereits. Der Claim wurde zur Adminprüfung angelegt. ${nextStep}` : `Registrierung erfolgreich. ${nextStep}` };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { error: "E-Mail-Adresse oder Alias wird bereits verwendet." };
     return { error: error instanceof Error && (error.message.includes("Alias") || error.message.includes("Spieler")) ? error.message : "Die Registrierung konnte nicht abgeschlossen werden." };
@@ -68,6 +71,7 @@ export async function logout() { await destroySession(); redirect("/"); }
 
 export async function requestPasswordReset(_: FormState, formData: FormData): Promise<FormState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
+  if (process.env.NODE_ENV === "production" && !mailDeliveryConfigured()) return { success: "Ein automatischer Passwort-Reset ist derzeit nicht verfügbar. Bitte wende dich an einen Administrator." };
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, deletedAt: true } });
   if (user && !user.deletedAt) {
     const { token, tokenHash } = createSecureToken();

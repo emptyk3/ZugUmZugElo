@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState, useTransition } from "react"
 import { createPlayer, getGameFormOptions, saveGame } from "./actions";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import { reviewReasonLabel } from "@/lib/games/review-labels";
 
 type PlayerOption = { id: string; alias: string; user?: { profileImageUrl: string | null } | null };
 type MissionOption = { id: string; name: string };
@@ -82,6 +83,7 @@ export default function AddGamePage() {
   const [newPlayerLevel, setNewPlayerLevel] = useState<"beginner" | "advanced">("beginner");
   const [newPlayerError, setNewPlayerError] = useState("");
   const [photoName, setPhotoName] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [mode, setMode] = useState<"edit" | "review" | "confirmation">("edit");
@@ -230,18 +232,19 @@ export default function AddGamePage() {
     const file = event.target.files?.[0];
     setPhotoError("");
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setPhotoError("Bitte wähle eine Bilddatei aus.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setPhotoError("Bitte wähle JPEG, PNG oder WebP aus.");
       event.target.value = "";
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setPhotoError("Das Foto darf höchstens 5 MB groß sein.");
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError("Das Foto darf höchstens 2 MB groß sein.");
       event.target.value = "";
       return;
     }
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoName(file.name);
+    setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   }
 
@@ -249,6 +252,7 @@ export default function AddGamePage() {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoPreview(null);
     setPhotoName("");
+    setPhotoFile(null);
     setPhotoError("");
   }
 
@@ -363,7 +367,7 @@ export default function AddGamePage() {
             ? Number(tiebreakRanks[participant.id])
             : undefined,
         })),
-      });
+      }, photoFile);
       if ("error" in result) {
         setSaveError(result.error);
         return;
@@ -380,6 +384,7 @@ export default function AddGamePage() {
     setPlayerCount(4);
     setParticipants(Array.from({ length: 4 }, (_, index) => createParticipant(index + 1)));
     setPhotoName("");
+    setPhotoFile(null);
     setPhotoPreview(null);
     setPhotoError("");
     setTiebreakRanks({});
@@ -609,7 +614,7 @@ export default function AddGamePage() {
         <section className={styles.confirmationShell}>
           <div className={styles.confirmationMark} aria-hidden="true">✓</div>
           <h2>{savedGame?.status === "PENDING" ? "Die Partie wartet auf Prüfung." : "Die Partie wurde gespeichert."}</h2>
-          <p>{savedGame?.status === "PENDING" ? `Noch keine Elo-Änderung. Prüfgründe: ${savedGame.reviewReasons.join(", ")}.` : "Alle Elo-Änderungen wurden atomar übernommen."}</p>
+          <p>{savedGame?.status === "PENDING" ? `Noch keine Elo-Änderung. ${savedGame.reviewReasons.map(reviewReasonLabel).join(" · ")}.` : "Alle Elo-Änderungen wurden atomar übernommen."}</p>
           {savedGame?.status === "CONFIRMED" && <ol className={styles.eloResults}>
             {savedGame?.results.map((result) => (
               <li key={result.playerId}>

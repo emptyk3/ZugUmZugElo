@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "test": "node --test --experimental-strip-types lib/elo/*.test.ts lib/auth/*.test.ts lib/players/*.test.ts lib/admin/*.test.ts lib/profile/*.test.ts",
+    "vercel-build": "node --experimental-strip-types scripts/validate-production-config.mjs && prisma generate && prisma migrate deploy && next build",
+    "test": "node --test --experimental-strip-types lib/elo/*.test.ts lib/auth/*.test.ts lib/players/*.test.ts lib/admin/*.test.ts lib/profile/*.test.ts lib/production/*.test.ts",
     "start": "next start",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@vercel/blob": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "next": "^15.0.3",
     "react": "^19.0.0",

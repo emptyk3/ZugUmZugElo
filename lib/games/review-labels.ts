@@ -1,0 +1,1 @@
+const LABELS:Record<string,string>={CREATOR_NOT_APPROVED:"Ersteller wartet noch auf Adminfreigabe",USER_REQUIRES_APPROVAL:"Für dieses Profil ist eine Partiefreigabe erforderlich",BACKDATED:"Die Partie wurde rückdatiert",MANUAL_ADMIN_REVIEW:"Manuelle Adminprüfung erforderlich"};export function reviewReasonLabel(reason:string){return LABELS[reason]??"Adminprüfung erforderlich"}

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { recalculateEloFromTransaction } from "@/lib/elo/recalculation";
 import { mergePlayers, mergePlayersInTransaction } from "@/lib/players/merge";
 import { assertAdminMayBeDeactivated } from "@/lib/admin/filters";
+import { hashPassword,validatePassword } from "@/lib/auth/password";
 
 async function mutateUser(formData:FormData, mutation:(tx:Prisma.TransactionClient,userId:string,adminId:string)=>Promise<void>){const admin=await requireAdmin();const userId=String(formData.get("userId")??"");if(!userId)return;await prisma.$transaction(tx=>mutation(tx,userId,admin.id),{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});revalidatePath("/admin");revalidatePath("/admin/benutzer")}
 async function protectLastAdmin(tx:Prisma.TransactionClient,userId:string){const target=await tx.user.findUniqueOrThrow({where:{id:userId},select:{role:true,status:true}});const isActiveAdmin=target.role===UserRole.ADMIN&&target.status===UserStatus.ACTIVE;const count=isActiveAdmin?await tx.user.count({where:{role:UserRole.ADMIN,status:UserStatus.ACTIVE,deletedAt:null}}):0;assertAdminMayBeDeactivated(count,isActiveAdmin)}
@@ -88,3 +89,5 @@ export async function confirmGame(fd: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/partien");
 }
+
+export async function setTemporaryPassword(fd:FormData){const admin=await requireAdmin();const userId=String(fd.get("userId")??"");const password=String(fd.get("temporaryPassword")??"");if(fd.get("confirmed")!=="on")throw new Error("Die kritische Aktion muss ausdrücklich bestätigt werden.");const error=validatePassword(password);if(error)throw new Error(error);const passwordHash=await hashPassword(password);await prisma.$transaction(async tx=>{await tx.user.update({where:{id:userId},data:{passwordHash}});await tx.passwordResetToken.updateMany({where:{userId,usedAt:null},data:{usedAt:new Date()}});await tx.auditLog.create({data:{actorUserId:admin.id,action:AuditAction.UPDATED,entityType:"UserPassword",entityId:userId,newData:{temporaryPasswordSet:true},note:"Temporäres Passwort durch Administrator gesetzt"}})});revalidatePath("/admin/passwort")}
