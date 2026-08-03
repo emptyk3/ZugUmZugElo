@@ -291,8 +291,9 @@ export default function AddGamePage() {
         errors.push(`${label}: Bitte wähle eine Mission aus.`);
       }
     });
+    if (!photoFile) errors.push("Bitte füge ein Foto der Partie hinzu.");
     return { errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
-  }, [participants, playedAt, playerCount]);
+  }, [participants, playedAt, playerCount, photoFile]);
 
   const tieGroups = useMemo(() => {
     const groups = new Map<number, Participant[]>();
@@ -510,12 +511,12 @@ export default function AddGamePage() {
             <section className={styles.section}>
               <div className={styles.sectionHeading}>
                 <div><span>03</span><h2>Belegfoto</h2></div>
-                <p>Optional, nur lokal angezeigt</p>
+                <p>Pflichtfeld · wird sicher gespeichert</p>
               </div>
               {!photoPreview ? (
                 <label className={styles.uploadArea}>
-                  <input type="file" accept="image/*" onChange={handlePhoto} />
-                  <span className={styles.uploadIcon}>＋</span><strong>Foto auswählen</strong><small>JPG, PNG oder WebP · maximal 5 MB</small>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} required />
+                  <span className={styles.uploadIcon}>＋</span><strong>Foto auswählen</strong><small>JPG, PNG oder WebP · maximal 2 MB</small>
                 </label>
               ) : (
                 <div className={styles.photoPreview}>
@@ -615,6 +616,10 @@ export default function AddGamePage() {
           <div className={styles.confirmationMark} aria-hidden="true">✓</div>
           <h2>{savedGame?.status === "PENDING" ? "Die Partie wartet auf Prüfung." : "Die Partie wurde gespeichert."}</h2>
           <p>{savedGame?.status === "PENDING" ? `Noch keine Elo-Änderung. ${savedGame.reviewReasons.map(reviewReasonLabel).join(" · ")}.` : "Alle Elo-Änderungen wurden atomar übernommen."}</p>
+          {photoPreview && <a href={photoPreview} target="_blank" rel="noreferrer" className={styles.savedPhoto}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoPreview} alt="Foto der gespeicherten Partie in größerer Ansicht öffnen" />
+          </a>}
           {savedGame?.status === "CONFIRMED" && <ol className={styles.eloResults}>
             {savedGame?.results.map((result) => (
               <li key={result.playerId}>

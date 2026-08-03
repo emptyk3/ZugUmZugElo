@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import GamePhoto from "@/components/GamePhoto";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,7 @@ export default async function GamesPage() {
       ) : (
         <section className={styles.gameList} aria-label="Partienhistorie">
           {games.map((game) => {
-            const hasPhoto = Boolean(game.photoUrl || game.photoStorageId);
+            const hasPhoto = Boolean(game.photoUrl);
             return (
               <article className={styles.gameCard} key={game.id}>
                 <header className={styles.cardHeader}>
@@ -102,10 +103,12 @@ export default async function GamesPage() {
                   <div className={styles.cardMeta}>
                     <span>{game.participants.length} Spieler</span>
                     <span className={hasPhoto ? styles.photoAvailable : styles.noPhoto}>
-                      {hasPhoto ? "Foto vorhanden" : "Kein Foto"}
+                      {hasPhoto ? "Foto vorhanden" : "Ältere Partie ohne Foto"}
                     </span>
                   </div>
                 </header>
+
+                <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${formatDate(game.playedAt)}`} className={styles.cardPhoto} />
 
                 <ol className={styles.participants}>
                   {game.participants.map((participant) => (

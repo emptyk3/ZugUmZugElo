@@ -1,2 +1,47 @@
-import { notFound } from "next/navigation";import { prisma } from "@/lib/prisma";import { requireAdmin } from "@/lib/auth/session";import { confirmGame,rejectGame } from "../../actions";
-export const dynamic="force-dynamic";export default async function Page({params}:{params:Promise<{id:string}>}){await requireAdmin();const {id}=await params;const g=await prisma.game.findUnique({where:{id},include:{createdByUser:{select:{email:true,player:{select:{alias:true}}}},reviewReasons:true,participants:{orderBy:{placement:"asc"},include:{player:{select:{id:true,alias:true}},mission:{select:{name:true}}}},reports:true}});if(!g)notFound();return <main className="account-shell wide"><a href="/admin/partien">← Partieverwaltung</a><div className="row-head"><h1>Partie vom {g.playedAt.toLocaleString("de-AT")}</h1><span className={`status status-${g.status.toLowerCase()}`}>{g.status}</span></div><p>Erfasst am {g.createdAt.toLocaleString("de-AT")} von {g.createdByUser.player?.alias??g.createdByUser.email}</p><p>Review-Gründe: {g.reviewReasons.map(r=>r.reason).join(", ")||"keine"}</p><p>Foto: {g.photoUrl||g.photoStorageId?"vorhanden":"nicht vorhanden"} · Meldungen: {g.reports.length}</p><div className="data-list">{g.participants.map(p=><article className="data-row" key={p.id}><h2>{p.placement}. <a href={`/admin/spieler/${p.player.id}`}>{p.player.alias}</a></h2><p>{p.points} Punkte · {p.mission.name}{!p.missionKept?" · Mission nicht behalten":""}{p.tiebreakRank?` · Tiebreak ${p.tiebreakRank}`:""}</p><p>Elo: {Math.round(p.ratingBefore)} → {Math.round(p.ratingAfter)} ({p.ratingChange>=0?"+":""}{Math.round(p.ratingChange)})</p></article>)}</div>{g.status==="PENDING"&&<div className="admin-grid"><form action={confirmGame} className="account-form"><input type="hidden" name="gameId" value={g.id}/><label>Prüfnotiz<textarea name="note"/></label><button>Bestätigen und Elo neu berechnen</button></form><form action={rejectGame} className="account-form"><input type="hidden" name="gameId" value={g.id}/><label>Ablehnungsgrund<textarea name="note" required/></label><button>Ablehnen</button></form></div>}</main>}
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/auth/session";
+import { confirmGame, rejectGame } from "../../actions";
+import GamePhoto from "@/components/GamePhoto";
+import GameEditor from "./GameEditor";
+
+export const dynamic = "force-dynamic";
+
+function localDateTime(date: Date) {
+  const parts = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Vienna", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
+  const { id } = await params;
+  const [game, players, missions] = await Promise.all([
+    prisma.game.findUnique({ where: { id }, include: {
+      createdByUser: { select: { email: true, player: { select: { alias: true } } } }, reviewReasons: true,
+      participants: { orderBy: { placement: "asc" }, include: { player: { select: { id: true, alias: true } }, mission: { select: { id: true, name: true, isActive: true } } } }, reports: true,
+    } }),
+    prisma.player.findMany({ where: { isActive: true, deletedAt: null, mergedIntoPlayerId: null }, orderBy: { alias: "asc" }, select: { id: true, alias: true } }),
+    prisma.mission.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, isActive: true } }),
+  ]);
+  if (!game) notFound();
+  const allowedMissionIds = new Set([...missions.filter((mission) => mission.isActive).map((mission) => mission.id), ...game.participants.map((participant) => participant.missionId)]);
+
+  return <main className="account-shell wide">
+    <a href="/admin/partien">← Partieverwaltung</a>
+    <div className="row-head"><h1>Partie vom {game.playedAt.toLocaleString("de-AT")}</h1><span className={`status status-${game.status.toLowerCase()}`}>{game.status}</span></div>
+    <p>Erfasst am {game.createdAt.toLocaleString("de-AT")} von {game.createdByUser.player?.alias ?? game.createdByUser.email}</p>
+    <p>Review-Gründe: {game.reviewReasons.map((reason) => reason.reason).join(", ") || "keine"} · Meldungen: {game.reports.length}</p>
+    <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${game.playedAt.toLocaleString("de-AT")}`} />
+    <div className="data-list">{game.participants.map((participant) => <article className="data-row" key={participant.id}>
+      <h2>{participant.placement}. <a href={`/admin/spieler/${participant.player.id}`}>{participant.player.alias}</a></h2>
+      <p>{participant.points} Punkte · {participant.mission.name}{!participant.missionKept ? " · Mission nicht behalten" : ""}{participant.tiebreakRank ? ` · Tiebreak ${participant.tiebreakRank}` : ""}</p>
+      <p>Elo: {Math.round(participant.ratingBefore)} → {Math.round(participant.ratingAfter)} ({participant.ratingChange >= 0 ? "+" : ""}{Math.round(participant.ratingChange)})</p>
+    </article>)}</div>
+    <GameEditor gameId={game.id} playedAt={localDateTime(game.playedAt)} hasPhoto={Boolean(game.photoUrl && game.photoStorageId)}
+      participants={game.participants.map((participant) => ({ playerId: participant.playerId, points: String(participant.points), missionId: participant.missionId, missionKept: participant.missionKept, tiebreakRank: participant.tiebreakRank ? String(participant.tiebreakRank) : "" }))}
+      players={players.map((player) => ({ id: player.id, label: player.alias }))}
+      missions={missions.filter((mission) => allowedMissionIds.has(mission.id)).map((mission) => ({ id: mission.id, label: mission.name, active: mission.isActive }))} />
+    {game.status === "PENDING" && <div className="admin-grid"><form action={confirmGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Prüfnotiz<textarea name="note" /></label><button>Bestätigen und Elo neu berechnen</button></form><form action={rejectGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Ablehnungsgrund<textarea name="note" required /></label><button>Ablehnen</button></form></div>}
+  </main>;
+}

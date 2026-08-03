@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import styles from "../page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import GamePhoto from "@/components/GamePhoto";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function GameDetailPage({
   });
 
   if (!game) notFound();
-  const hasPhoto = Boolean(game.photoUrl || game.photoStorageId);
+  const hasPhoto = Boolean(game.photoUrl);
 
   return (
     <main className={styles.page}>
@@ -73,9 +74,11 @@ export default async function GameDetailPage({
         <h1>{formatDate(game.playedAt)}</h1>
         <div className={styles.detailMeta}>
           <span>{game.participants.length} Spieler</span>
-          <span>{hasPhoto ? "Foto vorhanden" : "Kein Foto vorhanden"}</span>
+          <span>{hasPhoto ? "Foto vorhanden" : "Ältere Partie ohne Foto"}</span>
         </div>
       </header>
+
+      <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${formatDate(game.playedAt)}`} className={styles.detailPhoto} />
 
       <section className={styles.detailCard} aria-labelledby="result-title">
         <div className={styles.detailHeading}>

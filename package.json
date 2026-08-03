@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "vercel-build": "node --experimental-strip-types scripts/validate-production-config.mjs && prisma generate && prisma migrate deploy && next build",
-    "test": "node --test --experimental-strip-types lib/elo/*.test.ts lib/auth/*.test.ts lib/players/*.test.ts lib/admin/*.test.ts lib/profile/*.test.ts lib/production/*.test.ts",
+    "test": "node --test --experimental-strip-types lib/elo/*.test.ts lib/auth/*.test.ts lib/players/*.test.ts lib/admin/*.test.ts lib/profile/*.test.ts lib/production/*.test.ts lib/games/*.test.ts",
     "start": "next start",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",

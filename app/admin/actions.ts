@@ -59,9 +59,10 @@ export async function confirmGame(fd: FormData) {
   await prisma.$transaction(async (tx) => {
     const game = await tx.game.findUniqueOrThrow({
       where: { id },
-      select: { id: true, status: true, playedAt: true, participants: { select: { id: true } } },
+      select: { id: true, status: true, playedAt: true, photoUrl: true, photoStorageId: true, participants: { select: { id: true } } },
     });
     if (game.status !== "PENDING") throw new Error("Nur ausstehende Partien können bestätigt werden.");
+    if (!game.photoUrl || !game.photoStorageId) throw new Error("Bitte füge ein Foto der Partie hinzu.");
     if (game.participants.length !== 4 && game.participants.length !== 5) {
       throw new Error("Die Partie muss genau 4 oder 5 Teilnehmer enthalten.");
     }

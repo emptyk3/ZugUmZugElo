@@ -34,6 +34,7 @@
 .cardMeta span { padding: 6px 9px; border-radius: 99px; color: var(--muted); background: #efeee8; font-size: 10px; font-weight: 800; }
 .cardMeta .photoAvailable { color: #226341; background: #e2efe6; }
 .cardMeta .noPhoto { color: #7a7065; }
+.cardPhoto { width: min(420px, calc(100% - 48px)); margin: 20px 24px; }
 
 .participants { margin: 0; padding: 0; list-style: none; }
 .participants li { display: grid; grid-template-columns: 36px minmax(0, 1fr) 100px 100px; gap: 13px; align-items: center; padding: 13px 24px; border-top: 1px solid #ebe8e0; }
@@ -63,6 +64,7 @@
 .detailHero h1 { max-width: 800px; font-size: clamp(36px, 6vw, 61px); line-height: 1.02; }
 .detailMeta { display: flex; gap: 9px; margin-top: 20px; }
 .detailMeta span { padding: 7px 10px; border-radius: 99px; color: var(--muted); background: rgba(255, 255, 255, .62); font-size: 10px; font-weight: 800; }
+.detailPhoto { width: min(1040px, 100%); max-height: 580px; margin: 0 auto 24px; }
 .detailCard { width: min(1040px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid rgba(82, 91, 85, .2); border-radius: 19px; background: rgba(255, 253, 248, .96); box-shadow: 0 18px 50px rgba(35, 45, 39, .075); }
 .detailHeading { padding: 24px 27px 19px; border-bottom: 1px solid var(--line); }
 .detailHeading span { color: var(--green); font-size: 9px; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }

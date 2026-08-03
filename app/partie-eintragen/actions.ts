@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { gameSubmissionPolicy } from "@/lib/auth/policy";
 import { withStoredImageLifecycle,type StoredImage } from "@/lib/storage/images";
+import { GAME_PHOTO_REQUIRED_MESSAGE, validateGameParticipants } from "@/lib/games/validation";
 
 type SaveParticipantInput = {
   playerId: string;
@@ -95,10 +96,6 @@ export async function createPlayer(input: { alias: string; level: "beginner" | "
 }
 
 function validateInput(input: SaveGameInput) {
-  if (input.participants.length !== 4 && input.participants.length !== 5) {
-    throw new Error("Eine Partie muss genau 4 oder 5 Spieler enthalten.");
-  }
-
   const playedAt = new Date(input.playedAt);
   if (Number.isNaN(playedAt.getTime())) {
     throw new Error("Datum und Uhrzeit der Partie sind ungültig.");
@@ -107,27 +104,12 @@ function validateInput(input: SaveGameInput) {
     throw new Error("Die Partie darf nicht in der Zukunft liegen.");
   }
 
-  const playerIds = input.participants.map(({ playerId }) => playerId.trim());
-  if (playerIds.some((id) => !id)) {
-    throw new Error("Jeder Teilnehmer benötigt ein Spielerprofil.");
-  }
-  if (new Set(playerIds).size !== playerIds.length) {
-    throw new Error("Jeder Spieler darf nur einmal teilnehmen.");
-  }
-
-  for (const participant of input.participants) {
-    if (!Number.isInteger(participant.points)) {
-      throw new Error("Alle Punktzahlen müssen ganze Zahlen sein.");
-    }
-    if (!participant.missionId.trim()) {
-      throw new Error("Jeder Teilnehmer benötigt eine Mission.");
-    }
-  }
+  const playerIds = validateGameParticipants(input.participants);
 
   return { playedAt, playerIds };
 }
 
-async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typeof requireUser>>, photo:StoredImage|null) {
+async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typeof requireUser>>, photo:StoredImage) {
   const { playedAt, playerIds } = validateInput(input);
   const missionIds = [...new Set(input.participants.map(({ missionId }) => missionId.trim()))];
 
@@ -184,8 +166,8 @@ async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typ
           ratingSystemVersion: 1,
           kFactor: ELO_K_FACTOR,
           createdByUserId: creator.id,
-          photoUrl: photo?.url,
-          photoStorageId: photo?.storageId,
+          photoUrl: photo.url,
+          photoStorageId: photo.storageId,
           reviewReasons: reviewReasons.length ? { create: reviewReasons.map((reason) => ({ reason })) } : undefined,
         },
         select: { id: true },
@@ -241,9 +223,10 @@ async function persistGame(input: SaveGameInput, creator: Awaited<ReturnType<typ
 }
 
 export async function saveGame(input: SaveGameInput, photoFile?:File|null) {
+  if (!photoFile || photoFile.size <= 0) return { error: GAME_PHOTO_REQUIRED_MESSAGE };
   try {
     const creator = await requireUser("/partie-eintragen");
-    const savedGame = photoFile ? await withStoredImageLifecycle(photoFile,"games",(photo)=>persistGame(input,creator,photo)) : await persistGame(input,creator,null);
+    const savedGame = await withStoredImageLifecycle(photoFile,"games",(photo)=>persistGame(input,creator,photo));
     revalidatePath("/");
     return savedGame;
   } catch (error) {
