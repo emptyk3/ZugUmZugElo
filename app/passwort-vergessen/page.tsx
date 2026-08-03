@@ -1,0 +1,2 @@
+import { requestPasswordReset } from "../auth-actions"; import { ActionForm } from "../form-submit";
+export default function Page(){return <main className="account-shell"><h1>Passwort vergessen</h1><p>Wir geben unabhängig vom Kontostatus dieselbe Rückmeldung.</p><ActionForm action={requestPasswordReset} submitLabel="Link anfordern"><label>E-Mail-Adresse<input name="email" type="email" required /></label></ActionForm></main>}

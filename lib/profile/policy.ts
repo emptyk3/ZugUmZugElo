@@ -1,0 +1,6 @@
+export function profileChangeNeedsApproval(type:"ALIAS"|"NAME"|"PROFILE_IMAGE",restricted:boolean){return type==="NAME"||restricted}
+export function assertNoPendingRequest(count:number){if(count>0)throw new Error("Für diese Änderung besteht bereits ein offener Antrag.")}
+export function validateProfileName(firstName:string,lastName:string){if(!firstName.trim()||!lastName.trim())throw new Error("Vorname und Nachname dürfen nicht leer sein.");return{firstName:firstName.trim(),lastName:lastName.trim()}}
+export function planAliasChange(currentAlias:string,requestedAlias:string,restricted:boolean){if(!requestedAlias.trim())throw new Error("Alias darf nicht leer sein.");return restricted?{mode:"REQUEST" as const,activeAlias:currentAlias,requestedAlias:requestedAlias.trim()}:{mode:"IMMEDIATE" as const,activeAlias:requestedAlias.trim(),requestedAlias:null}}
+export function assertAliasAvailable(available:boolean){if(!available)throw new Error("Dieser Alias wird bereits verwendet.")}
+export function profileDecision(status:"PENDING"|"APPROVED"|"REJECTED",decision:"APPROVE"|"REJECT"){if(status!=="PENDING")throw new Error("Nur offene Anträge können bearbeitet werden.");return decision==="APPROVE"?"APPROVED" as const:"REJECTED" as const}

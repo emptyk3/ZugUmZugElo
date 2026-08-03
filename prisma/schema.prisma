@@ -72,6 +72,19 @@ enum AuditAction {
   REACTIVATED
 }
 
+enum ProfileChangeType {
+  ALIAS
+  NAME
+  PROFILE_IMAGE
+}
+
+enum ProfileChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model User {
   id           String @id @default(cuid())
   email        String @unique
@@ -90,6 +103,9 @@ model User {
   requiresGameApproval  Boolean   @default(false)
   canCreateGames        Boolean   @default(true)
   gameEntryBlockedUntil DateTime?
+  profileRestricted     Boolean   @default(false)
+  profileImageUrl       String?
+  profileImageStorageId String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -115,9 +131,36 @@ model User {
 
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  submittedProfileChanges ProfileChangeRequest[]   @relation("ProfileChangeSubmittedBy")
+  reviewedProfileChanges  ProfileChangeRequest[]   @relation("ProfileChangeReviewedBy")
 
   @@index([status])
   @@index([role])
+}
+
+model ProfileChangeRequest {
+  id String @id @default(cuid())
+
+  submittedByUserId String
+  submittedByUser   User   @relation("ProfileChangeSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Cascade)
+
+  type          ProfileChangeType
+  status        ProfileChangeStatus @default(PENDING)
+  currentData   Json
+  requestedData Json
+
+  reviewedByUserId String?
+  reviewedByUser   User?     @relation("ProfileChangeReviewedBy", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  note             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, type])
+  @@index([submittedByUserId, status])
+  @@index([reviewedByUserId])
+  @@index([createdAt])
 }
 
 model Player {

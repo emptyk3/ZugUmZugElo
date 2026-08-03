@@ -1,0 +1,2 @@
+import { verifyEmailToken } from "../auth-actions";
+export default async function Page({searchParams}:{searchParams:Promise<{token?:string}>}){const {token}=await searchParams;const ok=token?await verifyEmailToken(token):false;return <main className="account-shell"><h1>E-Mail bestätigen</h1><p>{ok?"Deine E-Mail-Adresse ist bestätigt. Dein Konto wartet nun auf die Freigabe.":"Der Bestätigungslink ist ungültig, abgelaufen oder wurde bereits verwendet."}</p><a href="/anmelden">Zur Anmeldung</a></main>}

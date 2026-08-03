@@ -1,3 +1,8 @@
+import { Navigation } from "./navigation";
+import "./site.css";
+import "./profile.css";
+import "./avatar-layouts.css";
+
 export const metadata = {
   title: "ZugUmZugElo",
   description: "Rangliste und Partieerfassung für Zug um Zug",
@@ -19,6 +24,7 @@ export default function RootLayout({
           color: "#17231e",
         }}
       >
+        <Navigation />
         {children}
       </body>
     </html>
