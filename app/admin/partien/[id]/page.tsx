@@ -20,7 +20,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const [game, players, missions] = await Promise.all([
     prisma.game.findUnique({ where: { id }, include: {
       createdByUser: { select: { email: true, player: { select: { alias: true } } } }, reviewReasons: true,
-      participants: { orderBy: { placement: "asc" }, include: { player: { select: { id: true, alias: true } }, mission: { select: { id: true, name: true, isActive: true } } } }, reports: true,
+      participants: { orderBy: { placement: "asc" }, include: { player: { select: { id: true, alias: true } }, mission: { select: { id: true, name: true, isActive: true } } } },
+      reports: { orderBy: { updatedAt: "desc" }, include: { submittedByUser: { select: { email: true, player: { select: { alias: true } } } } } },
     } }),
     prisma.player.findMany({ where: { isActive: true, deletedAt: null, mergedIntoPlayerId: null }, orderBy: { alias: "asc" }, select: { id: true, alias: true } }),
     prisma.mission.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, isActive: true } }),
@@ -33,6 +34,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <div className="row-head"><h1>Partie vom {game.playedAt.toLocaleString("de-AT")}</h1><span className={`status status-${game.status.toLowerCase()}`}>{game.status}</span></div>
     <p>Erfasst am {game.createdAt.toLocaleString("de-AT")} von {game.createdByUser.player?.alias ?? game.createdByUser.email}</p>
     <p>Review-Gründe: {game.reviewReasons.map((reason) => reason.reason).join(", ") || "keine"} · Meldungen: {game.reports.length}</p>
+    {game.reports.length > 0 && <section><h2>Meldungen zu dieser Partie</h2><div className="data-list">{game.reports.map((report) => <article className="data-row" key={report.id}><div className="row-head"><strong>{report.submittedByUser.player?.alias ?? report.submittedByUser.email}</strong><span className={`status status-${report.status.toLowerCase()}`}>{report.status}</span></div><p>{report.comment}</p><small>Gemeldet am {report.createdAt.toLocaleString("de-AT")} · <a href={`/admin/partien/${game.id}?bearbeiten=1`}>Partie direkt bearbeiten</a></small></article>)}</div></section>}
     <GameEditor gameId={game.id} playedAt={localDateTime(game.playedAt)} hasPhoto={Boolean(game.photoUrl && game.photoStorageId)} initialOpen={bearbeiten === "1"}
       participants={game.participants.map((participant) => ({ playerId: participant.playerId, points: String(participant.points), missionId: participant.missionId, missionKept: participant.missionKept, tiebreakRank: participant.tiebreakRank ? String(participant.tiebreakRank) : "" }))}
       players={players.map((player) => ({ id: player.id, label: player.alias }))}

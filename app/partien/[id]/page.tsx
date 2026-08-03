@@ -7,6 +7,7 @@ import PlayerAvatar from "@/components/PlayerAvatar";
 import GamePhoto from "@/components/GamePhoto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/policy";
+import ReportGameButton from "./ReportGameButton";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default async function GameDetailPage({
       playedAt: true,
       photoUrl: true,
       photoStorageId: true,
+      createdByUser: { select: { email: true, player: { select: { alias: true } } } },
       participants: {
         orderBy: { placement: "asc" },
         select: {
@@ -79,8 +81,10 @@ export default async function GameDetailPage({
         <div className={styles.detailMeta}>
           <span>{game.participants.length} Spieler</span>
           <span>{hasPhoto ? "Foto vorhanden" : "Ältere Partie ohne Foto"}</span>
+          <span>Eingetragen von {game.createdByUser.player?.alias ?? game.createdByUser.email}</span>
         </div>
         {admin && <Link className={styles.adminEditButton} href={`/admin/partien/${id}?bearbeiten=1`}>Partie bearbeiten</Link>}
+        {currentUser && <ReportGameButton gameId={id} />}
       </header>
 
       <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${formatDate(game.playedAt)}`} className={styles.detailPhoto} />
@@ -110,10 +114,9 @@ export default async function GameDetailPage({
                   <span>Punkte</span>
                 </div>
                 <div className={styles.ratingSummary}>
-                  <strong className={change >= 0 ? styles.positive : styles.negative}>
-                    {change > 0 ? "+" : ""}{change} Elo
-                  </strong>
-                  <small>{Math.round(participant.ratingBefore)} → {Math.round(participant.ratingAfter)}</small>
+                  <span><small>Elo alt</small><b>{Math.round(participant.ratingBefore)}</b></span>
+                  <span><small>± Elo</small><strong className={change >= 0 ? styles.positive : styles.negative}>{change > 0 ? "+" : ""}{change}</strong></span>
+                  <span><small>Elo neu</small><b>{Math.round(participant.ratingAfter)}</b></span>
                 </div>
               </li>
             );

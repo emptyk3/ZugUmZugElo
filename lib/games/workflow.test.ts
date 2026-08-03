@@ -49,3 +49,16 @@ test("Partiedetailseiten rendern vorhandene Fotos und neutralen Altbestand-Fallb
   assert.ok(photo.includes("Für diese ältere Partie wurde kein Foto gespeichert."));
   assert.ok(photo.includes('target="_blank"'));
 });
+
+test("eingeloggte Nutzer können eine maximal 100 Zeichen lange Partiemeldung senden", () => {
+  const action = readFileSync("app/partien/[id]/actions.ts", "utf8");
+  const button = readFileSync("app/partien/[id]/ReportGameButton.tsx", "utf8");
+  const admin = readFileSync("app/admin/partien/[id]/page.tsx", "utf8");
+  assert.ok(action.includes("await requireUser"));
+  assert.ok(action.includes("comment.length > 100"));
+  assert.ok(action.includes("gameReport.upsert"));
+  assert.ok(button.includes('maxLength={100}'));
+  assert.ok(button.includes("Partie melden"));
+  assert.ok(admin.includes("Meldungen zu dieser Partie"));
+  assert.ok(admin.includes("Partie direkt bearbeiten"));
+});

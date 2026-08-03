@@ -3,7 +3,6 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
-import GamePhoto from "@/components/GamePhoto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isAdmin } from "@/lib/auth/policy";
 
@@ -113,8 +112,6 @@ export default async function GamesPage() {
                     </span>
                   </div>
                 </header>
-
-                <GamePhoto photoUrl={game.photoUrl} alt={`Foto der Partie vom ${formatDate(game.playedAt)}`} className={styles.cardPhoto} />
 
                 <ol className={styles.participants}>
                   {game.participants.map((participant) => (
