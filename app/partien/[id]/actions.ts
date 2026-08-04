@@ -1,6 +1,6 @@
 "use server";
 
-import { GameReportReason, GameStatus, ReportStatus } from "@prisma/client";
+import { GameReportReason, GameReviewReason, GameStatus, ReportStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -14,10 +14,17 @@ export async function reportGame(gameId: string, message: string) {
   const game = await prisma.game.findFirst({ where: { id: gameId, status: GameStatus.CONFIRMED, deletedAt: null }, select: { id: true } });
   if (!game) return { error: "Diese Partie kann nicht gemeldet werden." };
 
-  await prisma.gameReport.upsert({
-    where: { gameId_submittedByUserId: { gameId, submittedByUserId: user.id } },
-    create: { gameId, submittedByUserId: user.id, reason: GameReportReason.OTHER, comment, status: ReportStatus.OPEN },
-    update: { reason: GameReportReason.OTHER, comment, status: ReportStatus.OPEN, reviewedByUserId: null, reviewedAt: null, resolution: null },
+  await prisma.$transaction(async (tx) => {
+    await tx.gameReport.upsert({
+      where: { gameId_submittedByUserId: { gameId, submittedByUserId: user.id } },
+      create: { gameId, submittedByUserId: user.id, reason: GameReportReason.OTHER, comment, status: ReportStatus.OPEN },
+      update: { reason: GameReportReason.OTHER, comment, status: ReportStatus.OPEN, reviewedByUserId: null, reviewedAt: null, resolution: null },
+    });
+    await tx.gameReviewFlag.upsert({
+      where: { gameId_reason: { gameId, reason: GameReviewReason.MANUAL_ADMIN_REVIEW } },
+      create: { gameId, reason: GameReviewReason.MANUAL_ADMIN_REVIEW },
+      update: { resolvedAt: null, resolvedByUserId: null },
+    });
   });
   revalidatePath("/admin");
   revalidatePath("/admin/partien");

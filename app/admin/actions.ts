@@ -9,6 +9,7 @@ import { assertAdminMayBeDeactivated } from "@/lib/admin/filters";
 import { hashPassword,validatePassword } from "@/lib/auth/password";
 import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
 import { logServerDatabaseError } from "@/lib/prisma/log-error";
+import { resolveOpenGameReviews } from "@/lib/games/review-resolution";
 
 export type ConfirmGameState = { error?: string; success?: string };
 const CONFIRM_GAME_ROLLBACK_MESSAGE = "Die Partie konnte nicht bestätigt werden. Die Elo-Neuberechnung wurde vollständig zurückgerollt. Bitte versuche es erneut.";
@@ -75,7 +76,7 @@ export async function confirmGame(_state: ConfirmGameState, fd: FormData): Promi
 
       const confirmedAt = new Date();
       await tx.game.update({ where: { id }, data: { status: "CONFIRMED", confirmedAt } });
-      await tx.gameReviewFlag.updateMany({ where: { gameId: id, resolvedAt: null }, data: { resolvedAt: confirmedAt } });
+      await resolveOpenGameReviews(tx, id, admin.id, confirmedAt);
       await recalculateEloFromTransaction(tx, game.playedAt);
       await tx.auditLog.create({
         data: {

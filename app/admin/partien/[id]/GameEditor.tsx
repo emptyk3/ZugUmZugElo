@@ -16,6 +16,7 @@ export default function GameEditor(props: Props) {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [reason, setReason] = useState("");
+  const [resolveOpenReports, setResolveOpenReports] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -42,9 +43,9 @@ export default function GameEditor(props: Props) {
   function submit(event: FormEvent) {
     event.preventDefault(); setMessage(""); if (!valid || !window.confirm("Partie wirklich ändern? Bei älteren Partien werden spätere Elo-Werte neu berechnet.")) return;
     const formData = new FormData();
-    formData.set("payload", JSON.stringify({ playedAt: new Date(playedAt).toISOString(), reason, participants: rows.map((row) => ({ playerId: row.playerId, points: Number(row.points), missionId: row.missionId, missionKept: row.missionKept, tiebreakRank: row.tiebreakRank ? Number(row.tiebreakRank) : undefined })) }));
+    formData.set("payload", JSON.stringify({ playedAt: new Date(playedAt).toISOString(), reason, resolveOpenReports, participants: rows.map((row) => ({ playerId: row.playerId, points: Number(row.points), missionId: row.missionId, missionKept: row.missionKept, tiebreakRank: row.tiebreakRank ? Number(row.tiebreakRank) : undefined })) }));
     if (photo) formData.set("photo", photo);
-    startTransition(async () => { const result = await updateGame(props.gameId, formData); if ("error" in result) setMessage(result.error ?? "Die Partie konnte nicht bearbeitet werden."); else { setMessage("Partie erfolgreich aktualisiert."); setOpen(false); router.refresh(); } });
+    startTransition(async () => { const result = await updateGame(props.gameId, formData); if ("error" in result) setMessage(result.error ?? "Die Partie konnte nicht bearbeitet werden."); else { setMessage("Partie erfolgreich aktualisiert."); setResolveOpenReports(false); setOpen(false); router.refresh(); } });
   }
 
   if (!open) return <div className="actions"><button type="button" onClick={() => setOpen(true)}>Partie bearbeiten</button>{message && <span className="form-success">{message}</span>}</div>;
@@ -64,6 +65,7 @@ export default function GameEditor(props: Props) {
       <label>{props.hasPhoto ? "Foto ersetzen (optional)" : "Foto ergänzen (Pflicht)"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} required={!props.hasPhoto} /></label>
       {photoError && <p className="form-error">{photoError}</p>}
       <label>Admin-Kommentar / Änderungsgrund<textarea value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+      <label><input type="checkbox" checked={resolveOpenReports} onChange={(event) => setResolveOpenReports(event.target.checked)} /> Offene Meldungen dieser Partie als erledigt markieren</label>
       {message && <p className="form-error" role="alert">{message}</p>}
       <div className="actions"><button type="button" onClick={() => setOpen(false)} disabled={pending}>Abbrechen</button><button disabled={!valid || pending}>{pending ? "Wird gespeichert…" : "Änderungen speichern"}</button></div>
     </form>

@@ -9,8 +9,9 @@ import { GAME_PHOTO_REQUIRED_MESSAGE, validateGameParticipants, type EditablePar
 import { prisma } from "@/lib/prisma";
 import { deleteStoredImage, withStoredImageLifecycle, type StoredImage } from "@/lib/storage/images";
 import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
+import { resolveOpenGameReviews } from "@/lib/games/review-resolution";
 
-type EditGameInput = { playedAt: string; participants: EditableParticipant[]; reason?: string };
+type EditGameInput = { playedAt: string; participants: EditableParticipant[]; reason?: string; resolveOpenReports?: boolean };
 
 function parseInput(formData: FormData): EditGameInput {
   const raw = String(formData.get("payload") ?? "");
@@ -71,6 +72,7 @@ async function persistEdit(gameId: string, adminId: string, input: EditGameInput
     }) });
 
     if (oldGame.status === GameStatus.CONFIRMED) await recalculateEloFromTransaction(tx, recalculationFrom);
+    if (input.resolveOpenReports) await resolveOpenGameReviews(tx, gameId, adminId);
 
     const updatedParticipants = input.participants.map((participant) => {
       const result = resultByPlayer.get(participant.playerId.trim())!;
@@ -104,5 +106,21 @@ export async function updateGame(gameId: string, formData: FormData) {
   } catch (error) {
     console.error("Administrative Partiebearbeitung fehlgeschlagen:", error instanceof Error ? error.message : "Unbekannter Fehler");
     return { error: error instanceof Error ? error.message : "Die Partie konnte nicht bearbeitet werden." };
+  }
+}
+
+export async function resolveGameReports(gameId: string) {
+  const admin = await requireAdmin();
+  if (!gameId) return { error: "Die Partie-ID fehlt." };
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.game.findUniqueOrThrow({ where: { id: gameId }, select: { id: true } });
+      return resolveOpenGameReviews(tx, gameId, admin.id);
+    });
+    revalidatePath("/admin"); revalidatePath("/admin/partien"); revalidatePath(`/admin/partien/${gameId}`);
+    return result.closedCount > 0 || result.closedReportCount > 0 ? { success: true as const } : { error: "Für diese Partie gibt es keine offene Meldung mehr." };
+  } catch (error) {
+    console.error("Partiemeldungen konnten nicht abgeschlossen werden:", error instanceof Error ? error.message : "Unbekannter Fehler");
+    return { error: "Die Meldung konnte nicht als erledigt markiert werden. Bitte versuche es erneut." };
   }
 }
