@@ -12,7 +12,9 @@ Das Skript führt ausschließlich `prisma generate`, `prisma migrate deploy` und
 
 ## Erforderliche Variablen
 
-`DATABASE_URL`, `SESSION_SECRET` (mindestens 32 Zeichen), `APP_URL` (HTTPS), `ADMIN_SEED_PASSWORD` (mindestens 12 Zeichen), `EMAIL_VERIFICATION_REQUIRED`, `PROFILE_IMAGE_STORAGE_MODE=vercel-blob` und `BLOB_READ_WRITE_TOKEN`.
+`DATABASE_URL`, `SESSION_SECRET` (mindestens 32 Zeichen), `APP_URL` (HTTPS), `ADMIN_SEED_PASSWORD` (mindestens 12 Zeichen), `EMAIL_VERIFICATION_REQUIRED` und `PROFILE_IMAGE_STORAGE_MODE=vercel-blob`.
+
+Der öffentliche Vercel Blob Store muss für Production und Preview mit dem Projekt verbunden sein. Die aktuelle `@vercel/blob`-Version authentifiziert Uploads und Löschungen auf Vercel automatisch per OIDC; ein langlebiger `BLOB_READ_WRITE_TOKEN` ist dafür nicht erforderlich.
 
 ## Migration und Seed
 
