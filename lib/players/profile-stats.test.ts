@@ -27,3 +27,47 @@ test("Öffentliche Profilabfrage enthält keine privaten User-Felder und Verlauf
   assert.match(page, /reverse\(\)\.slice\(0, 5\)/);
   assert.match(page, /status: GameStatus\.CONFIRMED, deletedAt: null/);
 });
+
+test("Profilstruktur priorisiert Elo und trennt Karrierewerte von Datumsangaben", () => {
+  const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
+  assert.ok(page.includes("profileFacts"));
+  assert.ok(page.includes("primaryElo"));
+  assert.ok(page.includes("bestätigte Partien"));
+  assert.ok(css.includes(".primaryElo strong"));
+  assert.ok(css.includes("font-size:clamp(38px"));
+  assert.ok(page.includes("item.date && <small>"));
+});
+
+test("Elo-Diagramm und Profil verwenden den zentralen Ganzzahl-Formatter", () => {
+  const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  const chart = readFileSync("app/spieler/[id]/EloChart.tsx", "utf8");
+  assert.ok(page.includes("formatElo(player.currentRating)"));
+  assert.ok(page.includes("formatEloChange(row.ratingChange)"));
+  assert.ok(chart.includes("tickFormatter={formatElo}"));
+  assert.ok(chart.includes("allowDecimals={false}"));
+  assert.ok(chart.includes("formatElo(point.ratingBefore)"));
+  assert.ok(chart.includes("formatEloChange(point.ratingChange)"));
+});
+
+test("Missionsbereich enthält nur fachlich begründete Highlights und Ohne Mission zeigt Gedankenstrich", () => {
+  const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  assert.equal(page.includes("Lieblingsmission"), false);
+  assert.ok(page.includes('label="Beste Mission"'));
+  assert.ok(page.includes('label="Schlechteste Mission"'));
+  assert.ok(page.includes('row.isWithoutMission ? "—" : percent(row.keptRate)'));
+});
+
+test("Partieverlauf lädt alle Teilnehmerdaten, sortiert sie und hebt den Profilspieler hervor", () => {
+  const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
+  assert.ok(page.includes('orderBy: [{ placement: "asc" }, { id: "asc" }]'));
+  for (const field of ["placement: true", "points: true", "missionKept: true", "mission: { select: { name: true } }"]) assert.ok(page.includes(field));
+  assert.ok(page.includes("participant.player.id === player.id ? styles.profileParticipant"));
+  assert.ok(page.includes("<PlayerAliasLink playerId={participant.player.id}"));
+  assert.ok(page.includes("participant.mission.name"));
+  assert.ok(page.includes("Mission nicht behalten"));
+  assert.equal(page.includes("mit {row.game.participants"), false);
+  assert.ok(css.includes(".profileParticipant"));
+  assert.ok(css.includes("border-left:4px solid var(--green)"));
+});

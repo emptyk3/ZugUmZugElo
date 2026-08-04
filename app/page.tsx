@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
+import { formatElo } from "@/lib/format/elo";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +106,7 @@ export default async function Home() {
                       <span className={styles.games}>{player._count.participations}</span>
                     </td>
                     <td data-label="Elo">
-                      <strong className={styles.rating}>{Math.round(player.currentRating)}</strong>
+                      <strong className={styles.rating}>{formatElo(player.currentRating)}</strong>
                     </td>
                   </tr>
                 ))}
