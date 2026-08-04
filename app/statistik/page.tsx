@@ -1,0 +1,81 @@
+import { GameStatus } from "@prisma/client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import PlayerAliasLink from "@/components/PlayerAliasLink";
+import PlayerAvatar from "@/components/PlayerAvatar";
+import { formatElo, formatEloChange } from "@/lib/format/elo";
+import { prisma } from "@/lib/prisma";
+import { calculateGameStatistics } from "@/lib/statistics/game-statistics";
+import { calculateMissionStatistics, type MissionMetric, type MissionStatisticRow } from "@/lib/statistics/mission-statistics";
+import { calculatePlayerStatistics, type SeriesRecord } from "@/lib/statistics/player-statistics";
+import type { StatisticsGame } from "@/lib/statistics/types";
+import styles from "./page.module.css";
+
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Statistiken | ZugUmZugElo", description: "Globale Spieler-, Spiel- und Missionsstatistiken der Spielgruppe." };
+
+const date = (value: Date) => new Intl.DateTimeFormat("de-AT", { dateStyle: "medium", timeZone: "Europe/Vienna" }).format(value);
+const number = (value: number, digits: number) => new Intl.NumberFormat("de-AT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+const percent = (value: number | null) => value === null ? "Keine Daten" : new Intl.NumberFormat("de-AT", { style: "percent", maximumFractionDigits: 1 }).format(value);
+const range = (row: SeriesRecord) => `${date(row.startedAt)} – ${date(row.endedAt)}`;
+
+function Person({ row }: { row: { id: string; alias: string; imageUrl: string | null } }) {
+  return <PlayerAliasLink playerId={row.id} alias={row.alias} className={styles.person}><PlayerAvatar alias={row.alias} imageUrl={row.imageUrl} size={42} /><strong>{row.alias}</strong></PlayerAliasLink>;
+}
+
+function SeriesList({ rows, value }: { rows: SeriesRecord[]; value: (row: SeriesRecord) => string }) {
+  if (!rows.length) return <p className={styles.empty}>Keine Daten</p>;
+  return <ul className={styles.recordList}>{rows.map((row, index) => <li key={`${row.id}-${row.firstGameId}-${index}`}><Person row={row} /><div className={styles.recordValue}><strong>{value(row)}</strong><Link href={`/partien/${row.firstGameId}`}>{range(row)}</Link>{row.running && <span>Laufend</span>}</div></li>)}</ul>;
+}
+
+function PlayersArea({ statistics }: { statistics: ReturnType<typeof calculatePlayerStatistics> }) {
+  const linked = (rows: typeof statistics.highestAllTime, formatter: (value: number) => string) => rows.length ? <ul className={styles.recordList}>{rows.map((row) => <li key={row.id}><Person row={row} /><div className={styles.recordValue}><strong>{formatter(row.value)}</strong>{row.gameId && <Link href={`/partien/${row.gameId}`}>{row.playedAt ? date(row.playedAt) : "Partie"}</Link>}</div></li>)}</ul> : <p className={styles.empty}>Keine Daten</p>;
+  return <div className={styles.area}>
+    <section className={styles.topCard}><div><span>Aktuelle Rangliste</span><h2>Höchste aktuelle Elo</h2><p>Geteilte Werte erhalten denselben dichten Rang; angezeigt werden alle Spieler der ersten drei Elo-Ränge.</p></div>{statistics.currentTop.length ? <ol>{statistics.currentTop.map((row) => <li key={row.id}><b>#{row.rank}</b><Person row={row} /><strong>{formatElo(row.currentRating)} Elo</strong></li>)}</ol> : <p className={styles.empty}>Noch keine aktiven Spieler.</p>}</section>
+    <div className={styles.cardGrid}>
+      <article className={styles.card}><span>Karriererekord</span><h2>Höchste Elo aller Zeiten</h2>{linked(statistics.highestAllTime, (v) => `${formatElo(v)} Elo`)}<small>Nur gespeicherte ratingAfter-Werte nach bestätigten Partien; Start-Elo zählt nicht als erspielter Rekord.</small></article>
+      <article className={styles.card}><span>Mindestens 5 Partien</span><h2>Höchste Winrate</h2>{statistics.highestWinRate.length ? <ul className={styles.recordList}>{statistics.highestWinRate.map((row) => <li key={row.id}><Person row={row} /><div className={styles.recordValue}><strong>{percent(row.winRate)}</strong><small>{row.wins} Siege · {row.games} Partien</small></div></li>)}</ul> : <p className={styles.empty}>Keine Daten</p>}</article>
+      <article className={styles.card}><span>Mindestens 5 Partien</span><h2>Höchste Ø-Punkte</h2>{statistics.highestAveragePoints.length ? <ul className={styles.recordList}>{statistics.highestAveragePoints.map((row) => <li key={row.id}><Person row={row} /><div className={styles.recordValue}><strong>{number(row.averagePoints, 1)}</strong><small>{row.games} Partien</small></div></li>)}</ul> : <p className={styles.empty}>Keine Daten</p>}</article>
+      <article className={styles.card}><span>Einzelpartie</span><h2>Höchste Punktzahl</h2>{linked(statistics.highestScore, String)}</article>
+    </div>
+    <h2 className={styles.groupTitle}>Serienrekorde</h2><div className={styles.cardGrid}>
+      <article className={styles.card}><span>Nur eigene Partien</span><h2>Längste Winning Streak</h2><SeriesList rows={statistics.longestWinningStreak} value={(r) => `${r.games} Siege`} /></article>
+      <article className={styles.card}><span>ratingChange ≥ 0</span><h2>Längste Serie ohne Elo-Verlust</h2><SeriesList rows={statistics.longestNonLossStreak} value={(r) => `${r.games} Partien · ${formatEloChange(r.totalGain)}`} /></article>
+      <article className={styles.card}><span>ratingChange ≥ 0</span><h2>Größtes Plus ohne Verlust</h2><SeriesList rows={statistics.greatestNonLossGain} value={(r) => `${formatEloChange(r.totalGain)} Elo · ${r.games} Partien`} /></article>
+      <article className={styles.card}><span>Gleitendes Fenster</span><h2>Bestes Plus über 5 Partien</h2><SeriesList rows={statistics.bestFiveGameGain} value={(r) => `${formatEloChange(r.value)} Elo`} /></article>
+      <article className={styles.card}><span>Gleitendes Fenster</span><h2>Bestes Plus über 10 Partien</h2><SeriesList rows={statistics.bestTenGameGain} value={(r) => `${formatEloChange(r.value)} Elo`} /></article>
+    </div>
+  </div>;
+}
+
+function GamesArea({ statistics }: { statistics: ReturnType<typeof calculateGameStatistics> }) {
+  const columns = [statistics.total, statistics.fourPlayers, statistics.fivePlayers];
+  return <section className={styles.tableCard}><h2>Spielstatistiken</h2><div className={styles.tableWrap}><table><thead><tr><th>Kennzahl</th><th>Gesamt</th><th>4 Spieler</th><th>5 Spieler</th></tr></thead><tbody><tr><th>Anzahl gespielter Partien</th>{columns.map((c, i) => <td key={i}>{c.games}</td>)}</tr><tr><th>Durchschnittliche Punkte</th>{columns.map((c, i) => <td key={i}>{c.averagePoints === null ? "Keine Daten" : number(c.averagePoints, 1)}</td>)}</tr><tr><th>Durchschnittliche Punkte des Siegers</th>{columns.map((c, i) => <td key={i}>{c.averageWinnerPoints === null ? "Keine Daten" : number(c.averageWinnerPoints, 1)}</td>)}</tr></tbody></table></div>{statistics.unexpectedPlayerCountGames > 0 && <p className={styles.note}>{statistics.unexpectedPlayerCountGames} bestätigte {statistics.unexpectedPlayerCountGames === 1 ? "Partie hat" : "Partien haben"} weder vier noch fünf Teilnehmer und ist nur in „Gesamt“ enthalten.</p>}</section>;
+}
+
+const metricValue = (row: MissionStatisticRow, metric: MissionMetric) => metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
+function MissionValue({ row, metric, best, children }: { row: MissionStatisticRow; metric: MissionMetric; best: string[]; children: React.ReactNode }) {
+  const winner = metricValue(row, metric) !== null && best.includes(row.id);
+  return <td className={winner ? styles.best : undefined}>{winner && <span aria-label="Bestwert" title="Bestwert">🏆</span>}{children}</td>;
+}
+function MissionsArea({ statistics }: { statistics: ReturnType<typeof calculateMissionStatistics> }) {
+  return <section className={styles.tableCard}><h2>Missionsstatistiken</h2><p>Leistungswerte einer Mission zählen nur, wenn sie behalten wurde. „Ohne Mission“ umfasst alle nicht behaltenen Missionen.</p><div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Ausgeteilt</th><th>% Ausgeteilt</th><th>Behalten</th><th>% Behalten</th><th>Siege</th><th>Sieg-%</th><th>Ø Platz</th><th>Ø Punkte</th><th>Ø Punkte (Sieg)</th><th>Max. Punkte</th></tr></thead><tbody>{statistics.rows.map((row) => <tr key={row.id}><th>{row.name}</th>
+    <MissionValue row={row} metric="drawn" best={statistics.best.drawn}>{row.drawn ?? "—"}</MissionValue><MissionValue row={row} metric="drawnRate" best={statistics.best.drawnRate}>{row.drawnRate === null ? "—" : percent(row.drawnRate)}</MissionValue><MissionValue row={row} metric="kept" best={statistics.best.kept}>{row.kept ?? "—"}</MissionValue><MissionValue row={row} metric="keptRate" best={statistics.best.keptRate}>{row.keptRate === null ? "—" : percent(row.keptRate)}</MissionValue>
+    <MissionValue row={row} metric="wins" best={statistics.best.wins}>{row.wins}</MissionValue><MissionValue row={row} metric="winRate" best={statistics.best.winRate}>{percent(row.winRate)}</MissionValue><MissionValue row={row} metric="averagePlacement" best={statistics.best.averagePlacement}>{row.averagePlacement === null ? "Keine Daten" : number(row.averagePlacement, 2)}</MissionValue><MissionValue row={row} metric="averagePoints" best={statistics.best.averagePoints}>{row.averagePoints === null ? "Keine Daten" : number(row.averagePoints, 1)}</MissionValue><MissionValue row={row} metric="averageWinnerPoints" best={statistics.best.averageWinnerPoints}>{row.averageWinnerPoints === null ? "Keine Daten" : number(row.averageWinnerPoints, 1)}</MissionValue><MissionValue row={row} metric="maxPoints" best={statistics.best.maxPoints}>{row.maxPoints ? <Link href={`/partien/${row.maxPoints.gameId}`}>{row.maxPoints.value}</Link> : "Keine Daten"}</MissionValue></tr>)}</tbody></table></div></section>;
+}
+
+export default async function StatisticsPage({ searchParams }: { searchParams: Promise<{ bereich?: string }> }) {
+  const requested = (await searchParams).bereich;
+  const area = requested === "spiel" || requested === "missionen" ? requested : "spieler";
+  const [players, rawGames, missions] = await Promise.all([
+    prisma.player.findMany({ where: { isActive: true, deletedAt: null, mergedIntoPlayerId: null }, orderBy: [{ currentRating: "desc" }, { alias: "asc" }], select: { id: true, alias: true, currentRating: true, user: { select: { profileImageUrl: true } } } }),
+    prisma.game.findMany({ where: { status: GameStatus.CONFIRMED, deletedAt: null }, orderBy: [{ playedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }], select: { id: true, playedAt: true, createdAt: true, participants: { select: { id: true, playerId: true, points: true, placement: true, ratingBefore: true, ratingChange: true, ratingAfter: true, missionId: true, missionKept: true, player: { select: { alias: true, user: { select: { profileImageUrl: true } } } } } } } }),
+    prisma.mission.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, sortOrder: true } }),
+  ]);
+  const games: StatisticsGame[] = rawGames.map((game) => ({ ...game, participants: game.participants.map((row) => ({ ...row, alias: row.player.alias, imageUrl: row.player.user?.profileImageUrl ?? null })) }));
+  const publicPlayers = players.map((player) => ({ id: player.id, alias: player.alias, currentRating: player.currentRating, imageUrl: player.user?.profileImageUrl ?? null }));
+  return <main className={styles.page}><header className={styles.hero}><span>Globale Auswertung</span><h1>Statistiken</h1><p>Rekorde, Serien und Kennzahlen aus allen bestätigten Partien der Spielgruppe.</p></header><nav className={styles.tabs} aria-label="Statistikbereiche">{[["spieler", "Spieler"], ["spiel", "Spiel"], ["missionen", "Missionen"]].map(([key, label]) => <Link key={key} href={`/statistik?bereich=${key}`} aria-current={area === key ? "page" : undefined}>{label}</Link>)}</nav>
+    {area === "spieler" && <PlayersArea statistics={calculatePlayerStatistics(publicPlayers, games)} />}{area === "spiel" && <GamesArea statistics={calculateGameStatistics(games)} />}{area === "missionen" && <MissionsArea statistics={calculateMissionStatistics(games, missions)} />}
+  </main>;
+}
+
