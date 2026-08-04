@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/session";
 import { confirmGame, rejectGame } from "../actions";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
+import { ActionForm } from "@/app/form-submit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       <div className="actions">
         <a className="button-link" href={`/admin/partien/${game.id}`}>Partie öffnen</a>
         <a className="button-link" href={`/admin/partien/${game.id}?bearbeiten=1`}>Partie bearbeiten</a>
-        {game.status === "PENDING" && <><form action={confirmGame}><input type="hidden" name="gameId" value={game.id} /><button>Bestätigen</button></form><form action={rejectGame}><input type="hidden" name="gameId" value={game.id} /><input type="hidden" name="note" value="In der Partieverwaltung abgelehnt" /><button>Ablehnen</button></form></>}
+        {game.status === "PENDING" && <><ActionForm action={confirmGame} submitLabel="Bestätigen"><input type="hidden" name="gameId" value={game.id} /></ActionForm><form action={rejectGame}><input type="hidden" name="gameId" value={game.id} /><input type="hidden" name="note" value="In der Partieverwaltung abgelehnt" /><button>Ablehnen</button></form></>}
       </div>
     </article>)}</div>
   </main>;

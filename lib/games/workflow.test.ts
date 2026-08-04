@@ -32,12 +32,45 @@ test("Upload, Persistenz und Rollback verwenden die zentrale Storage-Lifecycle-A
 test("Admin-Bearbeitung ist geschützt, atomar, auditiert und stößt Elo nur für bestätigte Partien an", () => {
   const action = readFileSync("app/admin/partien/[id]/actions.ts", "utf8");
   assert.ok(action.includes("await requireAdmin()"));
-  assert.ok(action.includes("TransactionIsolationLevel.Serializable"));
+  assert.ok(action.includes("ELO_RECALCULATION_TRANSACTION_OPTIONS"));
   assert.ok(action.includes("oldGame.status === GameStatus.CONFIRMED"));
   assert.ok(action.includes("recalculateEloFromTransaction(tx, recalculationFrom)"));
   assert.ok(action.includes("auditLog.create"));
   assert.equal(action.includes("BLOB_READ_WRITE_TOKEN"), false);
   assert.equal(action.includes("arrayBuffer"), false);
+});
+
+test("Elo-Neuberechnungen verwenden einheitliche lange Transaktionsgrenzen",()=>{
+  const options=readFileSync("lib/prisma/transaction-options.ts","utf8");
+  assert.ok(options.includes("maxWait: 10_000"));
+  assert.ok(options.includes("timeout: 30_000"));
+  assert.ok(options.includes("TransactionIsolationLevel.Serializable"));
+  for(const file of ["app/admin/actions.ts","app/admin/partien/[id]/actions.ts","lib/elo/recalculation.ts","lib/players/merge.ts"]){
+    assert.ok(readFileSync(file,"utf8").includes("ELO_RECALCULATION_TRANSACTION_OPTIONS"),`${file} verwendet nicht die zentrale Transaktionskonfiguration`);
+  }
+});
+
+test("Pending-Bestätigung bleibt atomar und liefert bei einem Fehler eine verständliche Rollback-Meldung",()=>{
+  const action=readFileSync("app/admin/actions.ts","utf8");
+  const confirmation=action.slice(action.indexOf("export async function confirmGame"),action.indexOf("export async function setTemporaryPassword"));
+  const recalculation=confirmation.indexOf("await recalculateEloFromTransaction");
+  const audit=confirmation.indexOf("await tx.auditLog.create");
+  assert.ok(confirmation.includes("await prisma.$transaction"));
+  assert.ok(recalculation>=0&&audit>recalculation,"AuditLog muss nach erfolgreicher Neuberechnung geschrieben werden");
+  assert.ok(confirmation.includes("ELO_RECALCULATION_TRANSACTION_OPTIONS"));
+  assert.ok(confirmation.includes("CONFIRM_GAME_ROLLBACK_MESSAGE"));
+  assert.ok(action.includes("Die Elo-Neuberechnung wurde vollständig zurückgerollt"));
+  assert.ok(readFileSync("app/admin/partien/page.tsx","utf8").includes("<ActionForm action={confirmGame}"));
+  assert.ok(readFileSync("app/admin/partien/[id]/page.tsx","utf8").includes("<ActionForm action={confirmGame}"));
+});
+
+test("Bulk-Neuberechnung verwendet ausschließlich parameterisierte Prisma-SQL-Fragmente",()=>{
+  const source=readFileSync("lib/elo/persistence.ts","utf8");
+  assert.ok(source.includes("Prisma.sql"));
+  assert.ok(source.includes("Prisma.join(values)"));
+  assert.ok(source.includes('UPDATE "GameParticipant"'));
+  assert.ok(source.includes('UPDATE "Player"'));
+  assert.equal(source.includes("$executeRawUnsafe"),false);
 });
 
 test("Partiedetailseiten rendern vorhandene Fotos und neutralen Altbestand-Fallback", () => {

@@ -2,6 +2,7 @@ import { AuditAction, ClaimStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recalculateEloFromTransaction } from "@/lib/elo/recalculation";
 import { validateMergeCandidates } from "./policy";
+import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
 
 export async function mergePlayersInTransaction(
   tx: Prisma.TransactionClient,
@@ -56,5 +57,5 @@ export async function mergePlayersInTransaction(
 }
 
 export function mergePlayers(input: { sourcePlayerId: string; targetPlayerId: string; actorUserId: string; note?: string }) {
-  return prisma.$transaction((tx) => mergePlayersInTransaction(tx, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  return prisma.$transaction((tx) => mergePlayersInTransaction(tx, input), ELO_RECALCULATION_TRANSACTION_OPTIONS);
 }

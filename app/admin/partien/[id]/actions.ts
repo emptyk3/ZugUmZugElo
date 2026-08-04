@@ -1,6 +1,6 @@
 "use server";
 
-import { AuditAction, GameStatus, Prisma } from "@prisma/client";
+import { AuditAction, GameStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/session";
 import { calculateMultiplayerElo } from "@/lib/elo";
@@ -8,6 +8,7 @@ import { recalculateEloFromTransaction } from "@/lib/elo/recalculation";
 import { GAME_PHOTO_REQUIRED_MESSAGE, validateGameParticipants, type EditableParticipant } from "@/lib/games/validation";
 import { prisma } from "@/lib/prisma";
 import { deleteStoredImage, withStoredImageLifecycle, type StoredImage } from "@/lib/storage/images";
+import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
 
 type EditGameInput = { playedAt: string; participants: EditableParticipant[]; reason?: string };
 
@@ -82,7 +83,7 @@ async function persistEdit(gameId: string, adminId: string, input: EditGameInput
       note: input.reason || "Partie administrativ bearbeitet",
     } });
     return { oldPhoto: replacement ? { url: oldGame.photoUrl, storageId: oldGame.photoStorageId } : null };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 20_000 });
+  }, ELO_RECALCULATION_TRANSACTION_OPTIONS);
 }
 
 export async function updateGame(gameId: string, formData: FormData) {

@@ -5,6 +5,7 @@ import { confirmGame, rejectGame } from "../../actions";
 import GamePhoto from "@/components/GamePhoto";
 import GameEditor from "./GameEditor";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
+import { ActionForm } from "@/app/form-submit";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <p>{participant.points} Punkte · {participant.mission.name}{!participant.missionKept ? " · Mission nicht behalten" : ""}{participant.tiebreakRank ? ` · Tiebreak ${participant.tiebreakRank}` : ""}</p>
       <p>Elo: {Math.round(participant.ratingBefore)} → {Math.round(participant.ratingAfter)} ({participant.ratingChange >= 0 ? "+" : ""}{Math.round(participant.ratingChange)})</p>
     </article>)}</div>
-    {game.status === "PENDING" && <div className="admin-grid"><form action={confirmGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Prüfnotiz<textarea name="note" /></label><button>Bestätigen und Elo neu berechnen</button></form><form action={rejectGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Ablehnungsgrund<textarea name="note" required /></label><button>Ablehnen</button></form></div>}
+    {game.status === "PENDING" && <div className="admin-grid"><ActionForm action={confirmGame} submitLabel="Bestätigen und Elo neu berechnen"><input type="hidden" name="gameId" value={game.id} /><label>Prüfnotiz<textarea name="note" /></label></ActionForm><form action={rejectGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Ablehnungsgrund<textarea name="note" required /></label><button>Ablehnen</button></form></div>}
   </main>;
 }

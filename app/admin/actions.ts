@@ -7,6 +7,11 @@ import { recalculateEloFromTransaction } from "@/lib/elo/recalculation";
 import { mergePlayers, mergePlayersInTransaction } from "@/lib/players/merge";
 import { assertAdminMayBeDeactivated } from "@/lib/admin/filters";
 import { hashPassword,validatePassword } from "@/lib/auth/password";
+import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
+import { logServerDatabaseError } from "@/lib/prisma/log-error";
+
+export type ConfirmGameState = { error?: string; success?: string };
+const CONFIRM_GAME_ROLLBACK_MESSAGE = "Die Partie konnte nicht bestätigt werden. Die Elo-Neuberechnung wurde vollständig zurückgerollt. Bitte versuche es erneut.";
 
 async function mutateUser(formData:FormData, mutation:(tx:Prisma.TransactionClient,userId:string,adminId:string)=>Promise<void>){const admin=await requireAdmin();const userId=String(formData.get("userId")??"");if(!userId)return;await prisma.$transaction(tx=>mutation(tx,userId,admin.id),{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});revalidatePath("/admin");revalidatePath("/admin/benutzer")}
 async function protectLastAdmin(tx:Prisma.TransactionClient,userId:string){const target=await tx.user.findUniqueOrThrow({where:{id:userId},select:{role:true,status:true}});const isActiveAdmin=target.role===UserRole.ADMIN&&target.status===UserStatus.ACTIVE;const count=isActiveAdmin?await tx.user.count({where:{role:UserRole.ADMIN,status:UserStatus.ACTIVE,deletedAt:null}}):0;assertAdminMayBeDeactivated(count,isActiveAdmin)}
@@ -45,50 +50,56 @@ export async function approveClaim(fd: FormData) {
     await tx.playerClaim.update({ where: { id: claim.id }, data: { status: "APPROVED", reviewedByUserId: admin.id, reviewedAt: now, note } });
     await tx.playerClaim.updateMany({ where: { playerId: claim.playerId, id: { not: claim.id }, status: "PENDING" }, data: { status: "REJECTED", reviewedByUserId: admin.id, reviewedAt: now, note: "Spieler wurde einem anderen Claim zugeordnet." } });
     await tx.auditLog.create({ data: { actorUserId: admin.id, action: AuditAction.APPROVED, entityType: "PlayerClaim", entityId: claim.id, oldData: { status: claim.status }, newData: { status: "APPROVED", playerId: claim.playerId, userId: claim.submittedByUserId }, note } });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, ELO_RECALCULATION_TRANSACTION_OPTIONS);
   revalidatePath("/"); revalidatePath("/admin"); revalidatePath("/admin/claims"); revalidatePath("/mein-profil");
 }
 export async function rejectGame(fd:FormData){const admin=await requireAdmin();const id=String(fd.get("gameId")??"");const note=String(fd.get("note")??"").trim();await prisma.$transaction(async tx=>{const old=await tx.game.findUniqueOrThrow({where:{id},select:{status:true}});await tx.game.update({where:{id},data:{status:"REJECTED"}});await tx.auditLog.create({data:{actorUserId:admin.id,action:AuditAction.REJECTED,entityType:"Game",entityId:id,oldData:old,newData:{status:"REJECTED"},note}})});revalidatePath("/admin/partien")}
 
-export async function confirmGame(fd: FormData) {
+export async function confirmGame(_state: ConfirmGameState, fd: FormData): Promise<ConfirmGameState> {
   const admin = await requireAdmin();
   const id = String(fd.get("gameId") ?? "");
   const note = String(fd.get("note") ?? "").trim();
-  if (!id) throw new Error("Die Partie-ID fehlt.");
+  if (!id) return { error: "Die Partie-ID fehlt." };
 
-  await prisma.$transaction(async (tx) => {
-    const game = await tx.game.findUniqueOrThrow({
-      where: { id },
-      select: { id: true, status: true, playedAt: true, photoUrl: true, photoStorageId: true, participants: { select: { id: true } } },
-    });
-    if (game.status !== "PENDING") throw new Error("Nur ausstehende Partien können bestätigt werden.");
-    if (!game.photoUrl || !game.photoStorageId) throw new Error("Bitte füge ein Foto der Partie hinzu.");
-    if (game.participants.length !== 4 && game.participants.length !== 5) {
-      throw new Error("Die Partie muss genau 4 oder 5 Teilnehmer enthalten.");
-    }
+  try {
+    await prisma.$transaction(async (tx) => {
+      const game = await tx.game.findUniqueOrThrow({
+        where: { id },
+        select: { id: true, status: true, playedAt: true, photoUrl: true, photoStorageId: true, participants: { select: { id: true } } },
+      });
+      if (game.status !== "PENDING") throw new Error("Nur ausstehende Partien können bestätigt werden.");
+      if (!game.photoUrl || !game.photoStorageId) throw new Error("Bitte füge ein Foto der Partie hinzu.");
+      if (game.participants.length !== 4 && game.participants.length !== 5) {
+        throw new Error("Die Partie muss genau 4 oder 5 Teilnehmer enthalten.");
+      }
 
-    const confirmedAt = new Date();
-    await tx.game.update({ where: { id }, data: { status: "CONFIRMED", confirmedAt } });
-    await tx.gameReviewFlag.updateMany({ where: { gameId: id, resolvedAt: null }, data: { resolvedAt: confirmedAt } });
-    await recalculateEloFromTransaction(tx, game.playedAt);
-    await tx.auditLog.create({
-      data: {
-        actorUserId: admin.id,
-        action: AuditAction.APPROVED,
-        entityType: "Game",
-        entityId: id,
-        oldData: { status: game.status },
-        newData: { status: "CONFIRMED", confirmedAt },
-        note: note || "Pending-Partie nach chronologischer Elo-Neuberechnung bestätigt",
-      },
-    });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      const confirmedAt = new Date();
+      await tx.game.update({ where: { id }, data: { status: "CONFIRMED", confirmedAt } });
+      await tx.gameReviewFlag.updateMany({ where: { gameId: id, resolvedAt: null }, data: { resolvedAt: confirmedAt } });
+      await recalculateEloFromTransaction(tx, game.playedAt);
+      await tx.auditLog.create({
+        data: {
+          actorUserId: admin.id,
+          action: AuditAction.APPROVED,
+          entityType: "Game",
+          entityId: id,
+          oldData: { status: game.status },
+          newData: { status: "CONFIRMED", confirmedAt },
+          note: note || "Pending-Partie nach chronologischer Elo-Neuberechnung bestätigt",
+        },
+      });
+    }, ELO_RECALCULATION_TRANSACTION_OPTIONS);
+  } catch (error) {
+    logServerDatabaseError("Bestätigung einer Pending-Partie fehlgeschlagen", error);
+    return { error: CONFIRM_GAME_ROLLBACK_MESSAGE };
+  }
 
   revalidatePath("/");
   revalidatePath("/partien");
   revalidatePath(`/partien/${id}`);
   revalidatePath("/admin");
   revalidatePath("/admin/partien");
+  return { success: "Die Partie wurde bestätigt und die Elo-Historie vollständig neu berechnet." };
 }
 
 export async function setTemporaryPassword(fd:FormData){const admin=await requireAdmin();const userId=String(fd.get("userId")??"");const password=String(fd.get("temporaryPassword")??"");if(fd.get("confirmed")!=="on")throw new Error("Die kritische Aktion muss ausdrücklich bestätigt werden.");const error=validatePassword(password);if(error)throw new Error(error);const passwordHash=await hashPassword(password);await prisma.$transaction(async tx=>{await tx.user.update({where:{id:userId},data:{passwordHash}});await tx.passwordResetToken.updateMany({where:{userId,usedAt:null},data:{usedAt:new Date()}});await tx.auditLog.create({data:{actorUserId:admin.id,action:AuditAction.UPDATED,entityType:"UserPassword",entityId:userId,newData:{temporaryPasswordSet:true},note:"Temporäres Passwort durch Administrator gesetzt"}})});revalidatePath("/admin/passwort")}

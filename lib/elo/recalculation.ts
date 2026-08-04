@@ -1,6 +1,8 @@
 import { GameStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { calculateChronologicalRatings } from "./timeline";
+import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
+import { writeRecalculatedRatings } from "./persistence";
 
 /** Runs a replay inside an existing transaction (admin approval/edit/backdating). */
 export async function recalculateEloFromTransaction(
@@ -44,20 +46,7 @@ export async function recalculateEloFromTransaction(
   }
 
   const recalculated = calculateChronologicalRatings(ratingsAtStart, games);
-  for (const participant of recalculated.participantUpdates) {
-    await tx.gameParticipant.update({
-      where: { id: participant.id },
-      data: {
-        placement: participant.placement,
-        ratingBefore: participant.ratingBefore,
-        ratingChange: participant.ratingChange,
-        ratingAfter: participant.ratingAfter,
-      },
-    });
-  }
-  for (const [playerId, currentRating] of recalculated.finalRatings) {
-    await tx.player.update({ where: { id: playerId }, data: { currentRating } });
-  }
+  await writeRecalculatedRatings(tx, recalculated);
   return recalculated;
 }
 
@@ -65,6 +54,6 @@ export async function recalculateEloFromTransaction(
 export function recalculateEloFrom(from: Date) {
   return prisma.$transaction(
     (tx) => recalculateEloFromTransaction(tx, from),
-    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ELO_RECALCULATION_TRANSACTION_OPTIONS,
   );
 }
