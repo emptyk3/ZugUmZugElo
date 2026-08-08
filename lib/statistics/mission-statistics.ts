@@ -21,7 +21,9 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
     return {
       id, name, isWithoutMission: without, drawn,
       drawnRate: drawn === null || totalDrawn === 0 ? null : drawn / totalDrawn,
-      kept, keptRate: drawn === null || kept === null || drawn === 0 ? null : kept / drawn,
+      kept, keptRate: without
+        ? kept === null || totalDrawn === 0 ? null : kept / totalDrawn
+        : drawn === null || kept === null || drawn === 0 ? null : kept / drawn,
       wins: wins.length, winRate: relevant.length ? wins.length / relevant.length : null,
       averagePlacement: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.placement, 0) / relevant.length : null,
       averagePoints: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.points, 0) / relevant.length : null,
@@ -35,11 +37,12 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
     return summarize(mission.id, mission.name, relevant, drawnEntries.length, relevant.length);
   });
   const without = entries.filter((entry) => !entry.row.missionKept);
-  rows.push(summarize("without-mission", "Ohne Mission", without, null, null, true));
+  rows.push(summarize("without-mission", "Ohne Mission", without, null, without.length, true));
 
   const best = Object.fromEntries(metrics.map((metric) => {
     const candidates = rows.flatMap((row) => {
       if (metric === "wins" && row.winRate === null) return [];
+      if (row.isWithoutMission && (metric === "kept" || metric === "keptRate")) return [];
       const raw = metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
       return raw === null ? [] : [{ id: row.id, value: raw as number }];
     });
@@ -49,4 +52,3 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
   })) as Record<MissionMetric, string[]>;
   return { rows, best, totalDrawn };
 }
-
