@@ -7,9 +7,9 @@ import { ActionForm } from "@/app/form-submit";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ status?: string; geloescht?: string }> }) {
   await requireAdmin();
-  const { status = "ALL" } = await searchParams;
+  const { status = "ALL", geloescht } = await searchParams;
   const validStatus = Object.values(GameStatus).includes(status as GameStatus) ? status as GameStatus : undefined;
   const games = await prisma.game.findMany({
     where: { status: validStatus, deletedAt: null },
@@ -24,6 +24,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
 
   return <main className="account-shell wide">
     <h1>Partieverwaltung</h1>
+    {geloescht === "1" && <p className="form-success" role="status">Partie wurde erfolgreich gelöscht.<br />Alle Elo-Werte wurden neu berechnet.</p>}
     <form className="filter-bar"><select name="status" defaultValue={status}><option value="ALL">Alle Status</option>{Object.values(GameStatus).filter((value) => value !== "DELETED").map((value) => <option key={value}>{value}</option>)}</select><button>Filtern</button></form>
     <p className="muted">{games.length} Partien</p>
     <div className="data-list">{games.map((game) => <article className="data-row" key={game.id}>

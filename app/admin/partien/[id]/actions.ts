@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { deleteStoredImage, withStoredImageLifecycle, type StoredImage } from "@/lib/storage/images";
 import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "@/lib/prisma/transaction-options";
 import { resolveOpenGameReviews } from "@/lib/games/review-resolution";
+import { hardDeleteGameInTransaction } from "@/lib/games/deletion";
 
 type EditGameInput = { playedAt: string; participants: EditableParticipant[]; reason?: string; resolveOpenReports?: boolean };
 
@@ -122,5 +123,24 @@ export async function resolveGameReports(gameId: string) {
   } catch (error) {
     console.error("Partiemeldungen konnten nicht abgeschlossen werden:", error instanceof Error ? error.message : "Unbekannter Fehler");
     return { error: "Die Meldung konnte nicht als erledigt markiert werden. Bitte versuche es erneut." };
+  }
+}
+
+export async function deleteGame(gameId: string) {
+  const admin = await requireAdmin();
+  if (!gameId) return { error: "Die Partie-ID fehlt." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const game = await tx.game.findUniqueOrThrow({ where: { id: gameId }, select: { id: true, playedAt: true, status: true, photoUrl: true, photoStorageId: true } });
+      // Vercel Blob ist nicht Teil der PostgreSQL-Transaktion. Ein Fehler stoppt vor jeder Datenbanklöschung.
+      if (game.photoUrl || game.photoStorageId) await deleteStoredImage({ url: game.photoUrl, storageId: game.photoStorageId });
+      await hardDeleteGameInTransaction(tx, game, admin.id, { recalculate: recalculateEloFromTransaction });
+    }, ELO_RECALCULATION_TRANSACTION_OPTIONS);
+    revalidatePath("/"); revalidatePath("/partien"); revalidatePath(`/partien/${gameId}`);
+    revalidatePath("/statistik"); revalidatePath("/admin"); revalidatePath("/admin/partien");
+    return { success: true as const };
+  } catch (error) {
+    console.error("Partie konnte nicht endgültig gelöscht werden:", error instanceof Error ? error.message : "Unbekannter Fehler");
+    return { error: "Die Partie konnte nicht gelöscht werden. Es wurden keine unvollständigen Datenbankänderungen gespeichert." };
   }
 }

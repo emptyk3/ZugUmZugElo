@@ -8,6 +8,7 @@ import GameEditor from "./GameEditor";
 import ResolveGameReportsButton from "./ResolveGameReportsButton";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { ActionForm } from "@/app/form-submit";
+import DeleteGameButton from "./DeleteGameButton";
 
 export const dynamic = "force-dynamic";
 
@@ -76,5 +77,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <p>Elo: {Math.round(participant.ratingBefore)} → {Math.round(participant.ratingAfter)} ({participant.ratingChange >= 0 ? "+" : ""}{Math.round(participant.ratingChange)})</p>
     </article>)}</div>
     {game.status === "PENDING" && <div className="admin-grid"><ActionForm action={confirmGame} submitLabel="Bestätigen und Elo neu berechnen"><input type="hidden" name="gameId" value={game.id} /><label>Prüfnotiz<textarea name="note" /></label></ActionForm><form action={rejectGame} className="account-form"><input type="hidden" name="gameId" value={game.id} /><label>Ablehnungsgrund<textarea name="note" required /></label><button>Ablehnen</button></form></div>}
+    <DeleteGameButton gameId={game.id} />
   </main>;
 }
