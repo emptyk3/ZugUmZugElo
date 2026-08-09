@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateGame } from "./actions";
+import { compressClientImage } from "@/lib/images/compress-client-image";
 
 type Option = { id: string; label: string; active?: boolean };
 type Row = { playerId: string; points: string; missionId: string; missionKept: boolean; tiebreakRank: string };
@@ -15,6 +16,8 @@ export default function GameEditor(props: Props) {
   const [rows, setRows] = useState(props.participants);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoError, setPhotoError] = useState("");
+  const [photoInfo, setPhotoInfo] = useState("");
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [reason, setReason] = useState("");
   const [resolveOpenReports, setResolveOpenReports] = useState(false);
   const [message, setMessage] = useState("");
@@ -33,12 +36,16 @@ export default function GameEditor(props: Props) {
       ? [...current, { playerId: "", points: "", missionId: "", missionKept: true, tiebreakRank: "" }]
       : current.slice(0, count));
   }
-  function choosePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null; setPhotoError(""); setPhoto(null);
+  async function choosePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null; setPhotoError(""); setPhotoInfo(""); setPhoto(null);
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return setPhotoError("Bitte wähle JPEG, PNG oder WebP aus.");
-    if (file.size > 2 * 1024 * 1024 || file.size <= 0) return setPhotoError("Das Foto darf höchstens 2 MB groß sein.");
-    setPhoto(file);
+    setPreparingPhoto(true);
+    try {
+      const optimized = await compressClientImage(file, "game"); setPhoto(optimized);
+      const mb = (bytes: number) => new Intl.NumberFormat("de-AT", { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
+      setPhotoInfo(`Bild optimiert: ${mb(file.size)} MB → ${mb(optimized.size)} MB`);
+    } catch (error) { setPhotoError(error instanceof Error ? error.message : "Das Bild konnte nicht verarbeitet werden."); event.target.value = ""; }
+    finally { setPreparingPhoto(false); }
   }
   function submit(event: FormEvent) {
     event.preventDefault(); setMessage(""); if (!valid || !window.confirm("Partie wirklich ändern? Bei älteren Partien werden spätere Elo-Werte neu berechnet.")) return;
@@ -62,12 +69,13 @@ export default function GameEditor(props: Props) {
         <label><input type="checkbox" checked={!row.missionKept} onChange={(event) => update(index, { missionKept: !event.target.checked })} /> Mission nicht behalten</label>
         <label>Tiebreak-Rang (nur bei Punktegleichstand)<input type="number" min="1" step="1" value={row.tiebreakRank} onChange={(event) => update(index, { tiebreakRank: event.target.value })} /></label>
       </fieldset>)}
-      <label>{props.hasPhoto ? "Foto ersetzen (optional)" : "Foto ergänzen (Pflicht)"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} required={!props.hasPhoto} /></label>
+      <label>{props.hasPhoto ? "Foto ersetzen (optional)" : "Foto ergänzen (Pflicht)"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={choosePhoto} required={!props.hasPhoto} disabled={preparingPhoto || pending} /></label>
+      {preparingPhoto && <p>Bild wird vorbereitet …</p>}{photoInfo && <small>{photoInfo}</small>}
       {photoError && <p className="form-error">{photoError}</p>}
       <label>Admin-Kommentar / Änderungsgrund<textarea value={reason} onChange={(event) => setReason(event.target.value)} /></label>
       <label><input type="checkbox" checked={resolveOpenReports} onChange={(event) => setResolveOpenReports(event.target.checked)} /> Offene Meldungen dieser Partie als erledigt markieren</label>
       {message && <p className="form-error" role="alert">{message}</p>}
-      <div className="actions"><button type="button" onClick={() => setOpen(false)} disabled={pending}>Abbrechen</button><button disabled={!valid || pending}>{pending ? "Wird gespeichert…" : "Änderungen speichern"}</button></div>
+      <div className="actions"><button type="button" onClick={() => setOpen(false)} disabled={pending || preparingPhoto}>Abbrechen</button><button disabled={!valid || pending || preparingPhoto}>{pending ? "Bild wird hochgeladen …" : "Änderungen speichern"}</button></div>
     </form>
   </section>;
 }

@@ -10,7 +10,7 @@ test("neue Partie ohne Foto wird client- und serverseitig abgelehnt", () => {
   const page = readFileSync("app/partie-eintragen/page.tsx", "utf8");
   assert.ok(action.includes(`return { error: GAME_PHOTO_REQUIRED_MESSAGE }`));
   assert.ok(page.includes(GAME_PHOTO_REQUIRED_MESSAGE));
-  assert.ok(page.includes("required />"));
+  assert.match(page, /type="file"[^>]*required/);
 });
 
 test("Partieteilnehmer validieren Punkte, Spieler, Mission und Tiebreak", () => {

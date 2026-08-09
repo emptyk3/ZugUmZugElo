@@ -6,6 +6,7 @@ import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { reviewReasonLabel } from "@/lib/games/review-labels";
+import { compressClientImage } from "@/lib/images/compress-client-image";
 
 type PlayerOption = { id: string; alias: string; user?: { profileImageUrl: string | null } | null };
 type MissionOption = { id: string; name: string };
@@ -87,6 +88,8 @@ export default function AddGamePage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState("");
+  const [photoInfo, setPhotoInfo] = useState("");
+  const [isPreparingPhoto, setIsPreparingPhoto] = useState(false);
   const [mode, setMode] = useState<"edit" | "review" | "confirmation">("edit");
   const [tiebreakRanks, setTiebreakRanks] = useState<Record<number, string>>({});
   const [saveError, setSaveError] = useState("");
@@ -229,24 +232,25 @@ export default function AddGamePage() {
     return missions.find(({ id }) => id === missionId)?.name ?? "Keine Mission gewählt";
   }
 
-  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    setPhotoError("");
+    setPhotoError(""); setPhotoInfo("");
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setPhotoError("Bitte wähle JPEG, PNG oder WebP aus.");
+    setIsPreparingPhoto(true);
+    try {
+      const optimized = await compressClientImage(file, "game");
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhotoName(optimized.name);
+      setPhotoFile(optimized);
+      setPhotoPreview(URL.createObjectURL(optimized));
+      const mb = (bytes: number) => new Intl.NumberFormat("de-AT", { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
+      setPhotoInfo(`Bild optimiert: ${mb(file.size)} MB → ${mb(optimized.size)} MB`);
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Das Bild konnte nicht verarbeitet werden.");
       event.target.value = "";
-      return;
+    } finally {
+      setIsPreparingPhoto(false);
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setPhotoError("Das Foto darf höchstens 2 MB groß sein.");
-      event.target.value = "";
-      return;
-    }
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoName(file.name);
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
   }
 
   function removePhoto() {
@@ -255,6 +259,8 @@ export default function AddGamePage() {
     setPhotoName("");
     setPhotoFile(null);
     setPhotoError("");
+    setPhotoInfo("");
+    setPhotoInfo("");
   }
 
   const editValidation = useMemo(() => {
@@ -516,8 +522,8 @@ export default function AddGamePage() {
               </div>
               {!photoPreview ? (
                 <label className={styles.uploadArea}>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} required />
-                  <span className={styles.uploadIcon}>＋</span><strong>Foto auswählen</strong><small>JPG, PNG oder WebP · maximal 2 MB</small>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} required disabled={isPreparingPhoto} />
+                  <span className={styles.uploadIcon}>＋</span><strong>Foto auswählen</strong><small>JPG, PNG oder WebP · Original maximal 15 MB</small>
                 </label>
               ) : (
                 <div className={styles.photoPreview}>
@@ -526,6 +532,7 @@ export default function AddGamePage() {
                   <div><span>{photoName}</span><button type="button" onClick={removePhoto}>Entfernen</button></div>
                 </div>
               )}
+              {isPreparingPhoto && <p>Bild wird vorbereitet …</p>}{photoInfo && <p>{photoInfo}</p>}
               {photoError && <p className={styles.inlineError}>{photoError}</p>}
             </section>
           </form>
@@ -552,7 +559,7 @@ export default function AddGamePage() {
                   {editValidation.warnings.map((warning) => <p className={styles.warning} key={warning}>! {warning}</p>)}
                 </>}
               </div>
-              <button className={styles.primaryButton} type="button" disabled={editValidation.errors.length > 0} onClick={enterReview}>Partie prüfen</button>
+              <button className={styles.primaryButton} type="button" disabled={editValidation.errors.length > 0 || isPreparingPhoto} onClick={enterReview}>Partie prüfen</button>
               <p className={styles.noSave}>Tiebreaks werden bei Bedarf im nächsten Schritt festgelegt.</p>
             </div>
           </aside>
@@ -608,7 +615,7 @@ export default function AddGamePage() {
           {saveError && <div className={styles.reviewErrors} role="alert"><p>× {saveError}</p></div>}
           <div className={styles.reviewActions}>
             <button className={styles.secondaryButton} type="button" onClick={returnToEdit}>Zurück zur Bearbeitung</button>
-            <button className={styles.primaryButton} type="button" disabled={!reviewReady || isSaving} onClick={persistReviewedGame}>{isSaving ? "Partie wird gespeichert…" : "Partie speichern"}</button>
+            <button className={styles.primaryButton} type="button" disabled={!reviewReady || isSaving} onClick={persistReviewedGame}>{isSaving ? "Bild wird hochgeladen …" : "Partie speichern"}</button>
           </div>
           <p className={styles.noSave}>Partie und Elo-Änderungen werden gemeinsam gespeichert.</p>
         </section>
