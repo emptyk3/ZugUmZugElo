@@ -6,7 +6,7 @@ import PlayerAvatar from "@/components/PlayerAvatar";
 import { formatElo, formatEloChange } from "@/lib/format/elo";
 import { prisma } from "@/lib/prisma";
 import { calculateGameStatistics } from "@/lib/statistics/game-statistics";
-import { calculateMissionStatistics, type MissionMetric, type MissionStatisticRow } from "@/lib/statistics/mission-statistics";
+import { calculateMissionStatistics, type MissionStatisticRow } from "@/lib/statistics/mission-statistics";
 import { calculatePlayerStatistics, type SeriesRecord } from "@/lib/statistics/player-statistics";
 import type { StatisticsGame } from "@/lib/statistics/types";
 import styles from "./page.module.css";
@@ -53,15 +53,14 @@ function GamesArea({ statistics }: { statistics: ReturnType<typeof calculateGame
   return <section className={styles.tableCard}><h2>Spielstatistiken</h2><div className={styles.tableWrap}><table><thead><tr><th>Kennzahl</th><th>Gesamt</th><th>4 Spieler</th><th>5 Spieler</th></tr></thead><tbody><tr><th>Anzahl gespielter Partien</th>{columns.map((c, i) => <td key={i}>{c.games}</td>)}</tr><tr><th>Durchschnittliche Punkte</th>{columns.map((c, i) => <td key={i}>{c.averagePoints === null ? "Keine Daten" : number(c.averagePoints, 1)}</td>)}</tr><tr><th>Durchschnittliche Punkte des Siegers</th>{columns.map((c, i) => <td key={i}>{c.averageWinnerPoints === null ? "Keine Daten" : number(c.averageWinnerPoints, 1)}</td>)}</tr></tbody></table></div>{statistics.unexpectedPlayerCountGames > 0 && <p className={styles.note}>{statistics.unexpectedPlayerCountGames} bestätigte {statistics.unexpectedPlayerCountGames === 1 ? "Partie hat" : "Partien haben"} weder vier noch fünf Teilnehmer und ist nur in „Gesamt“ enthalten.</p>}</section>;
 }
 
-const metricValue = (row: MissionStatisticRow, metric: MissionMetric) => metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
-function MissionValue({ row, metric, best, children }: { row: MissionStatisticRow; metric: MissionMetric; best: string[]; children: React.ReactNode }) {
-  const winner = metricValue(row, metric) !== null && best.includes(row.id);
-  return <td className={winner ? styles.best : undefined}>{winner && <span aria-label="Bestwert" title="Bestwert">🏆</span>}{children}</td>;
+function MissionValue({ row, rank, children }: { row: MissionStatisticRow; rank?: 1 | 2 | 3; children: React.ReactNode }) {
+  const medals = { 1: "🥇", 2: "🥈", 3: "🥉" } as const;
+  return <td className={rank ? styles[`rank${rank}` as "rank1" | "rank2" | "rank3"] : undefined}>{rank && <span aria-label={`Platz ${rank}`} title={`Platz ${rank}`}>{medals[rank]}</span>}{children}</td>;
 }
 function MissionsArea({ statistics }: { statistics: ReturnType<typeof calculateMissionStatistics> }) {
   return <section className={styles.tableCard}><h2>Missionsstatistiken</h2><p>Leistungswerte einer Mission zählen nur, wenn sie behalten wurde. „Ohne Mission“ umfasst alle nicht behaltenen Missionen.</p><div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Ausgeteilt</th><th>% Ausgeteilt</th><th>Behalten</th><th>% Behalten</th><th>Siege</th><th>Sieg-%</th><th>Ø Platz</th><th>Ø Punkte</th><th>Ø Punkte (Sieg)</th><th>Max. Punkte</th></tr></thead><tbody>{statistics.rows.map((row) => <tr key={row.id}><th>{row.name}</th>
-    <MissionValue row={row} metric="drawn" best={statistics.best.drawn}>{row.drawn ?? "—"}</MissionValue><MissionValue row={row} metric="drawnRate" best={statistics.best.drawnRate}>{row.drawnRate === null ? "—" : percent(row.drawnRate)}</MissionValue><MissionValue row={row} metric="kept" best={statistics.best.kept}>{row.kept ?? "—"}</MissionValue><MissionValue row={row} metric="keptRate" best={statistics.best.keptRate}>{row.keptRate === null ? "—" : percent(row.keptRate)}</MissionValue>
-    <MissionValue row={row} metric="wins" best={statistics.best.wins}>{row.wins}</MissionValue><MissionValue row={row} metric="winRate" best={statistics.best.winRate}>{percent(row.winRate)}</MissionValue><MissionValue row={row} metric="averagePlacement" best={statistics.best.averagePlacement}>{row.averagePlacement === null ? "Keine Daten" : number(row.averagePlacement, 2)}</MissionValue><MissionValue row={row} metric="averagePoints" best={statistics.best.averagePoints}>{row.averagePoints === null ? "Keine Daten" : number(row.averagePoints, 1)}</MissionValue><MissionValue row={row} metric="averageWinnerPoints" best={statistics.best.averageWinnerPoints}>{row.averageWinnerPoints === null ? "Keine Daten" : number(row.averageWinnerPoints, 1)}</MissionValue><MissionValue row={row} metric="maxPoints" best={statistics.best.maxPoints}>{row.maxPoints ? <Link href={`/partien/${row.maxPoints.gameId}`}>{row.maxPoints.value}</Link> : "Keine Daten"}</MissionValue></tr>)}</tbody></table></div></section>;
+    <MissionValue row={row}>{row.drawn ?? "—"}</MissionValue><MissionValue row={row}>{row.drawnRate === null ? "—" : percent(row.drawnRate)}</MissionValue><MissionValue row={row} rank={statistics.rankings.kept[row.id]}>{row.kept ?? "—"}</MissionValue><MissionValue row={row} rank={statistics.rankings.keptRate[row.id]}>{row.keptRate === null ? "—" : percent(row.keptRate)}</MissionValue>
+    <MissionValue row={row} rank={statistics.rankings.wins[row.id]}>{row.wins}</MissionValue><MissionValue row={row} rank={statistics.rankings.winRate[row.id]}>{percent(row.winRate)}</MissionValue><MissionValue row={row} rank={statistics.rankings.averagePlacement[row.id]}>{row.averagePlacement === null ? "Keine Daten" : number(row.averagePlacement, 2)}</MissionValue><MissionValue row={row} rank={statistics.rankings.averagePoints[row.id]}>{row.averagePoints === null ? "Keine Daten" : number(row.averagePoints, 1)}</MissionValue><MissionValue row={row} rank={statistics.rankings.averageWinnerPoints[row.id]}>{row.averageWinnerPoints === null ? "Keine Daten" : number(row.averageWinnerPoints, 1)}</MissionValue><MissionValue row={row} rank={statistics.rankings.maxPoints[row.id]}>{row.maxPoints ? <Link href={`/partien/${row.maxPoints.gameId}`}>{row.maxPoints.value}</Link> : "Keine Daten"}</MissionValue></tr>)}</tbody></table></div></section>;
 }
 
 export default async function StatisticsPage({ searchParams }: { searchParams: Promise<{ bereich?: string }> }) {
@@ -78,4 +77,3 @@ export default async function StatisticsPage({ searchParams }: { searchParams: P
     {area === "spieler" && <PlayersArea statistics={calculatePlayerStatistics(publicPlayers, games)} />}{area === "spiel" && <GamesArea statistics={calculateGameStatistics(games)} />}{area === "missionen" && <MissionsArea statistics={calculateMissionStatistics(games, missions)} />}
   </main>;
 }
-

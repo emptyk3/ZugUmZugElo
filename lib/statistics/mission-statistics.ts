@@ -8,7 +8,30 @@ export type MissionStatisticRow = {
   averageWinnerPoints: number | null; maxPoints: { value: number; gameId: string } | null;
 };
 
+export type MissionRank = 1 | 2 | 3;
 const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "maxPoints"];
+const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "maxPoints"]);
+
+export function createMissionRankings(rows: MissionStatisticRow[]) {
+  return Object.fromEntries(metrics.map((metric) => {
+    if (!performanceMetrics.has(metric)) return [metric, {}];
+    const candidates = rows.flatMap((row) => {
+      if (metric === "wins" && row.winRate === null) return [];
+      const raw = metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
+      return typeof raw === "number" && Number.isFinite(raw) ? [{ id: row.id, value: raw }] : [];
+    });
+    candidates.sort((left, right) => (metric === "averagePlacement" ? left.value - right.value : right.value - left.value) || left.id.localeCompare(right.id));
+    const ranks: Record<string, MissionRank> = {};
+    let previousValue: number | null = null;
+    let rank = 0;
+    candidates.forEach((candidate, index) => {
+      if (previousValue === null || !equalNumber(candidate.value, previousValue)) rank = index + 1;
+      previousValue = candidate.value;
+      if (rank <= 3) ranks[candidate.id] = rank as MissionRank;
+    });
+    return [metric, ranks];
+  })) as Record<MissionMetric, Record<string, MissionRank>>;
+}
 
 export function calculateMissionStatistics(games: StatisticsGame[], catalog: MissionCatalogItem[]) {
   const sortedGames = [...games].sort(compareGames);
@@ -39,16 +62,6 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
   const without = entries.filter((entry) => !entry.row.missionKept);
   rows.push(summarize("without-mission", "Ohne Mission", without, null, without.length, true));
 
-  const best = Object.fromEntries(metrics.map((metric) => {
-    const candidates = rows.flatMap((row) => {
-      if (metric === "wins" && row.winRate === null) return [];
-      if (row.isWithoutMission && (metric === "kept" || metric === "keptRate")) return [];
-      const raw = metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
-      return raw === null ? [] : [{ id: row.id, value: raw as number }];
-    });
-    if (!candidates.length) return [metric, []];
-    const target = metric === "averagePlacement" ? Math.min(...candidates.map((item) => item.value)) : Math.max(...candidates.map((item) => item.value));
-    return [metric, candidates.filter((item) => equalNumber(item.value, target)).map((item) => item.id)];
-  })) as Record<MissionMetric, string[]>;
-  return { rows, best, totalDrawn };
+  const rankings = createMissionRankings(rows);
+  return { rows, rankings, totalDrawn };
 }
