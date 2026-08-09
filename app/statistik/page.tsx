@@ -54,7 +54,7 @@ function GamesArea({ statistics }: { statistics: ReturnType<typeof calculateGame
 }
 
 function MissionValue({ row, rank, children }: { row: MissionStatisticRow; rank?: 1 | 2 | 3; children: React.ReactNode }) {
-  const medals = { 1: "🥇", 2: "🥈", 3: "🥉" } as const;
+  const medals = { 1: "🏆", 2: "🥈", 3: "🥉" } as const;
   return <td className={rank ? styles[`rank${rank}` as "rank1" | "rank2" | "rank3"] : undefined}>{rank && <span aria-label={`Platz ${rank}`} title={`Platz ${rank}`}>{medals[rank]}</span>}{children}</td>;
 }
 function MissionsArea({ statistics }: { statistics: ReturnType<typeof calculateMissionStatistics> }) {
