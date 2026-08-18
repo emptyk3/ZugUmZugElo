@@ -1,10 +1,44 @@
-import type { StatisticsGame } from "./types.ts";
+import { compareGames, type StatisticsGame } from "./types.ts";
 
 export type GameStatisticColumn = {
   games: number;
   averagePoints: number | null;
   averageWinnerPoints: number | null;
 };
+
+export type GamePointsTimelineEntry = {
+  gameId: string;
+  playedAt: Date;
+  winnerPoints: number;
+  gameAveragePoints: number;
+  cumulativeWinnerAverage: number;
+  cumulativePlayerAverage: number;
+};
+
+export function buildGamePointsTimeline(games: StatisticsGame[]): GamePointsTimelineEntry[] {
+  let winnerPointsTotal = 0;
+  let playerPointsTotal = 0;
+  let playerResultsTotal = 0;
+
+  return [...games].sort(compareGames).map((game, index) => {
+    const winner = game.participants.find((participant) => participant.placement === 1);
+    if (!winner || game.participants.length === 0) throw new Error(`Partie ${game.id} besitzt keine vollständigen Ergebnisdaten.`);
+
+    const gamePointsTotal = game.participants.reduce((sum, participant) => sum + participant.points, 0);
+    winnerPointsTotal += winner.points;
+    playerPointsTotal += gamePointsTotal;
+    playerResultsTotal += game.participants.length;
+
+    return {
+      gameId: game.id,
+      playedAt: game.playedAt,
+      winnerPoints: winner.points,
+      gameAveragePoints: gamePointsTotal / game.participants.length,
+      cumulativeWinnerAverage: winnerPointsTotal / (index + 1),
+      cumulativePlayerAverage: playerPointsTotal / playerResultsTotal,
+    };
+  });
+}
 
 function summarize(games: StatisticsGame[]): GameStatisticColumn {
   const results = games.flatMap((game) => game.participants);
@@ -24,6 +58,10 @@ export function calculateGameStatistics(games: StatisticsGame[]) {
     fourPlayers: summarize(fourPlayerGames),
     fivePlayers: summarize(fivePlayerGames),
     unexpectedPlayerCountGames: games.length - fourPlayerGames.length - fivePlayerGames.length,
+    timelines: {
+      total: buildGamePointsTimeline(games),
+      fourPlayers: buildGamePointsTimeline(fourPlayerGames),
+      fivePlayers: buildGamePointsTimeline(fivePlayerGames),
+    },
   };
 }
-

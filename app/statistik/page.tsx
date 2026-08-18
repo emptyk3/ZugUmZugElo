@@ -9,6 +9,7 @@ import { calculateGameStatistics } from "@/lib/statistics/game-statistics";
 import { calculateMissionStatistics, type MissionStatisticRow } from "@/lib/statistics/mission-statistics";
 import { calculatePlayerStatistics, type SeriesRecord } from "@/lib/statistics/player-statistics";
 import type { StatisticsGame } from "@/lib/statistics/types";
+import GamePointsTimelineChart from "./GamePointsTimelineChart";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,12 @@ function PlayersArea({ statistics }: { statistics: ReturnType<typeof calculatePl
 
 function GamesArea({ statistics }: { statistics: ReturnType<typeof calculateGameStatistics> }) {
   const columns = [statistics.total, statistics.fourPlayers, statistics.fivePlayers];
-  return <section className={styles.tableCard}><h2>Spielstatistiken</h2><div className={styles.tableWrap}><table><thead><tr><th>Kennzahl</th><th>Gesamt</th><th>4 Spieler</th><th>5 Spieler</th></tr></thead><tbody><tr><th>Anzahl gespielter Partien</th>{columns.map((c, i) => <td key={i}>{c.games}</td>)}</tr><tr><th>Durchschnittliche Punkte</th>{columns.map((c, i) => <td key={i}>{c.averagePoints === null ? "Keine Daten" : number(c.averagePoints, 1)}</td>)}</tr><tr><th>Durchschnittliche Punkte des Siegers</th>{columns.map((c, i) => <td key={i}>{c.averageWinnerPoints === null ? "Keine Daten" : number(c.averageWinnerPoints, 1)}</td>)}</tr></tbody></table></div>{statistics.unexpectedPlayerCountGames > 0 && <p className={styles.note}>{statistics.unexpectedPlayerCountGames} bestätigte {statistics.unexpectedPlayerCountGames === 1 ? "Partie hat" : "Partien haben"} weder vier noch fünf Teilnehmer und ist nur in „Gesamt“ enthalten.</p>}</section>;
+  const serializable = (entries: typeof statistics.timelines.total) => entries.map((entry) => ({ ...entry, playedAt: entry.playedAt.toISOString() }));
+  return <div className={styles.gameStatistics}><section className={styles.tableCard}><h2>Spielstatistiken</h2><div className={styles.tableWrap}><table><thead><tr><th>Kennzahl</th><th>Gesamt</th><th>4 Spieler</th><th>5 Spieler</th></tr></thead><tbody><tr><th>Anzahl gespielter Partien</th>{columns.map((c, i) => <td key={i}>{c.games}</td>)}</tr><tr><th>Durchschnittliche Punkte</th>{columns.map((c, i) => <td key={i}>{c.averagePoints === null ? "Keine Daten" : number(c.averagePoints, 1)}</td>)}</tr><tr><th>Durchschnittliche Punkte des Siegers</th>{columns.map((c, i) => <td key={i}>{c.averageWinnerPoints === null ? "Keine Daten" : number(c.averageWinnerPoints, 1)}</td>)}</tr></tbody></table></div>{statistics.unexpectedPlayerCountGames > 0 && <p className={styles.note}>{statistics.unexpectedPlayerCountGames} bestätigte {statistics.unexpectedPlayerCountGames === 1 ? "Partie hat" : "Partien haben"} weder vier noch fünf Teilnehmer und ist nur in „Gesamt“ enthalten.</p>}</section>
+    <GamePointsTimelineChart title="Punkteentwicklung – Gesamt" entries={serializable(statistics.timelines.total)} emptyMessage="Noch keine bestätigten Partien vorhanden." />
+    <GamePointsTimelineChart title="Punkteentwicklung – 4 Spieler" entries={serializable(statistics.timelines.fourPlayers)} emptyMessage="Noch keine Partien mit 4 Spielern vorhanden." />
+    <GamePointsTimelineChart title="Punkteentwicklung – 5 Spieler" entries={serializable(statistics.timelines.fivePlayers)} emptyMessage="Noch keine Partien mit 5 Spielern vorhanden." />
+  </div>;
 }
 
 function MissionValue({ row, rank, children }: { row: MissionStatisticRow; rank?: 1 | 2 | 3; children: React.ReactNode }) {

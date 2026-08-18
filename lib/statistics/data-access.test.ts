@@ -4,7 +4,7 @@ import test from "node:test";
 
 const page = readFileSync(new URL("../../app/statistik/page.tsx", import.meta.url), "utf8");
 
-test("Statistikseite lädt nur bestätigte, nicht gelöschte Partien", () => {
+test("Statistikseite und Zeitreihen laden weder Pending-, Rejected- noch gelöschte Partien", () => {
   assert.match(page, /status:\s*GameStatus\.CONFIRMED/);
   assert.match(page, /deletedAt:\s*null/);
   assert.doesNotMatch(page, /GameStatus\.(PENDING|REJECTED|DELETED)/);
