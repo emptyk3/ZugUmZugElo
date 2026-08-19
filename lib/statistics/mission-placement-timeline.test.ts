@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildMissionPlacementTimeline } from "./mission-placement-timeline.ts";
+import { buildMissionPlacementBranches, buildMissionPlacementTimeline, buildMissionPlacementTooltipRows } from "./mission-placement-timeline.ts";
 import { hideAllMissionLines, missionLineKey, onlyMissionAverages, toggleMissionLine } from "./mission-placement-timeline-visibility.ts";
 import type { MissionCatalogItem, StatisticsGame } from "./types.ts";
 
@@ -57,6 +57,38 @@ test("jede Partie erhält genau eine globale komprimierte X-Position für alle M
   assert.equal(timeline.entries[1].missionValues["without-mission"].placements.length, 2);
 });
 
+test("Ohne Mission verzweigt bei mehreren Ist-Werten und läuft am nächsten Einzelwert wieder zusammen", () => {
+  const branchGames = [
+    game("before", "2026-01-01T10:00:00Z", [{ id: "a", missionId: "m1", kept: false, placement: 3 }]),
+    game("split", "2026-01-02T10:00:00Z", [{ id: "b", missionId: "m1", kept: false, placement: 2 }, { id: "c", missionId: "m2", kept: false, placement: 5 }]),
+    game("after", "2026-01-03T10:00:00Z", [{ id: "d", missionId: "m3", kept: false, placement: 4 }]),
+  ];
+  const timeline = buildMissionPlacementTimeline(branchGames, catalog);
+  const branches = buildMissionPlacementBranches(timeline.entries, "without-mission");
+  assert.equal(branches.length, 2);
+  assert.deepEqual(branches.map((branch) => branch.map((point) => point.placement)), [[3, 2, 4], [3, 5, 4]]);
+  assert.equal(branches[0][1].visualPosition, branches[1][1].visualPosition);
+  assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 10 / 3);
+  assert.equal(timeline.entries[1].missionValues["without-mission"].placements.length, 2);
+});
+
+test("Tooltip sortiert Teilnehmer nach Platzierung statt Serienreihenfolge und behält Ohne Mission getrennt", () => {
+  const tooltipGame = game("tooltip", "2026-02-01T12:00:00Z", [
+    { id: "z", missionId: "m1", kept: true, placement: 4 },
+    { id: "b", missionId: "m1", kept: false, placement: 2, alias: "Tibsi" },
+    { id: "a", missionId: "m2", kept: false, placement: 2, alias: "Fabi" },
+    { id: "c", missionId: "m2", kept: true, placement: 1 },
+  ]);
+  const timeline = buildMissionPlacementTimeline([tooltipGame], catalog);
+  const rows = buildMissionPlacementTooltipRows(timeline.entries[0], timeline.series, new Set(["m1", "m2", "without-mission"]));
+  assert.deepEqual(rows.map((row) => [row.missionId, row.playerAlias, row.placement]), [
+    ["m2", "c", 1], ["without-mission", "Fabi", 2], ["without-mission", "Tibsi", 2], ["m1", "z", 4],
+  ]);
+  assert.equal(rows.filter((row) => row.missionId === "without-mission").length, 2);
+  assert.equal(rows[1].cumulativeAveragePlacement, 2);
+  assert.equal(rows[2].cumulativeAveragePlacement, 2);
+});
+
 test("Y-Achsenmaximum erweitert sich bei gespeicherten Platzierungen außerhalb 1 bis 5", () => {
   const timeline = buildMissionPlacementTimeline([game("g", "2026-02-01T12:00:00Z", [{ id: "a", missionId: "m1", kept: true, placement: 6 }])], catalog);
   assert.equal(timeline.maximumPlacement, 6);
@@ -78,8 +110,10 @@ test("Chart ist vollständig auf Platzierungen, globale X-Werte und gemeinsamen 
   assert.match(chart, /Platzierung/); assert.match(chart, /Laufender Ø Platz/);
   assert.doesNotMatch(chart, /Partiepunkte|Punkteentwicklung|value: "Punkte"|addCompressedTimelinePositions/);
   assert.match(chart, /dataKey="visualPosition"/); assert.match(chart, /reversed/); assert.match(chart, /domain=\{\[1, maximumPlacement\]\}/);
-  assert.match(chart, /placementsByMission/); assert.match(chart, /<Scatter/);
-  assert.match(chart, /shownMissions/); assert.match(chart, /gamesById\.get/); assert.match(chart, /Partie öffnen/);
+  assert.match(chart, /placementBranchesByMission/); assert.match(chart, /<Scatter/);
+  assert.match(chart, /buildMissionPlacementTooltipRows/); assert.match(chart, /gamesById\.get/); assert.match(chart, /Partie öffnen/);
+  assert.match(chart, /colorsByMissionId\.get\(row\.missionId\)/);
+  assert.equal(chart.match(/Partie öffnen/g)?.length, 1);
   assert.match(chart, /minimumFractionDigits: 2, maximumFractionDigits: 2/);
   assert.match(gameChart, /winnerPoints/); assert.match(gameChart, /gameAveragePoints/); assert.match(gameChart, /cumulativePlayerAverage/);
 });

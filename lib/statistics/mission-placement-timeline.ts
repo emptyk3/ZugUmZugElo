@@ -16,6 +16,47 @@ export type MissionPlacementTimeline = {
   maximumPlacement: number;
 };
 
+export type MissionPlacementBranchPoint = MissionPlacementResult & {
+  gameId: string;
+  playedAt: Date;
+  visualPosition: number;
+};
+
+export type MissionPlacementTooltipRow = MissionPlacementResult & {
+  missionId: string;
+  missionName: string;
+  cumulativeAveragePlacement: number;
+};
+
+export function buildMissionPlacementBranches(entries: MissionPlacementGame[], missionId: string): MissionPlacementBranchPoint[][] {
+  const maximumResultsPerGame = Math.max(0, ...entries.map((entry) => entry.missionValues[missionId].placements.length));
+  return Array.from({ length: maximumResultsPerGame }, (_, branchIndex) => entries.flatMap((entry) => {
+    const placements = entry.missionValues[missionId].placements;
+    if (!placements.length) return [];
+    const result = placements[Math.min(branchIndex, placements.length - 1)];
+    return [{ ...result, gameId: entry.gameId, playedAt: entry.playedAt, visualPosition: entry.visualPosition }];
+  }));
+}
+
+export function buildMissionPlacementTooltipRows(
+  game: MissionPlacementGame,
+  series: MissionPlacementSeries[],
+  visibleMissionIds: ReadonlySet<string>,
+): MissionPlacementTooltipRow[] {
+  return series.flatMap((mission) => {
+    if (!visibleMissionIds.has(mission.id)) return [];
+    const value = game.missionValues[mission.id];
+    if (!value.placements.length || value.cumulativeAveragePlacement === null) return [];
+    const cumulativeAveragePlacement = value.cumulativeAveragePlacement;
+    return value.placements.map((result) => ({
+      ...result,
+      missionId: mission.id,
+      missionName: mission.name,
+      cumulativeAveragePlacement,
+    }));
+  }).sort((left, right) => left.placement - right.placement || left.participantId.localeCompare(right.participantId));
+}
+
 const categoryFor = (participant: StatisticsParticipation, missionIds: ReadonlySet<string>) => participant.missionKept
   ? missionIds.has(participant.missionId) ? participant.missionId : null
   : "without-mission";
