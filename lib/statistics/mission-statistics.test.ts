@@ -100,6 +100,9 @@ test("Missions-UI enthält ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzei
   assert.match(page, /value < 0 \? `−\$\{number/);
   assert.match(page, /averageRatingChange/);
   assert.match(page, /Die Reihenfolge richtet sich nach der durchschnittlichen Platzierung/);
+  assert.match(page, /Bei der Auswertung von Missionen werden nur Partien berücksichtigt, in denen die jeweilige Mission behalten wurde/);
+  assert.match(page, /„Ohne Mission“ umfasst alle Partien, in denen die gezogene Mission nicht behalten wurde/);
+  assert.doesNotMatch(page, /Mission 1–6/);
   assert.match(page, /missionRankCell\}>\{index < 3 \? missionMedals/);
   assert.match(page, /: `\$\{index \+ 1\}\.\`/);
   assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
@@ -113,8 +116,10 @@ test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt m
   assert.match(page, /<th className=\{styles\.missionRankHeader\}>Rang<\/th><th>Mission<\/th><th>Gezogen<\/th><th>% Gezogen<\/th>/);
   assert.match(page, /<td className=\{styles\.missionRankCell\}>.*<\/td><th scope="row">\{row\.name\}<\/th>/);
   assert.match(page, /<\/table><\/div><p className=\{styles\.missionExplanation\}>/);
-  assert.match(css, /\.missionPage \.hero,\.missionPage \.tabs,\.missionTableCard\{width:min\(1320px,100%\)\}/);
-  assert.match(css, /\.missionTableWrap th:nth-child\(2\)\{min-width:183px;padding-inline:5px;white-space:nowrap\}/);
+  assert.match(css, /\.hero,\.tabs,\.area,\.gameStatistics,\.tableCard\{width:min\(1320px,100%\);margin-inline:auto\}/);
+  assert.match(css, /\.gameStatistics>\*\{min-width:0;box-sizing:border-box\}/);
+  assert.doesNotMatch(page, /styles\.missionPage/);
+  assert.match(css, /\.missionTableWrap th:nth-child\(2\)\{min-width:183px;padding-inline:5px;white-space:nowrap;text-align:left\}/);
   assert.match(css, /\.missionTableWrap thead th\{white-space:nowrap\}/);
   assert.match(css, /\.missionRankColumn\{width:42px\}\.missionNameColumn\{width:183px\}/);
   assert.match(css, /\.missionRankHeader,\.missionRankCell\{padding-inline:3px!important;text-align:center!important;vertical-align:middle\}/);
