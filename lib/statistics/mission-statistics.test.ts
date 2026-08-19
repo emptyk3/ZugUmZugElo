@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { calculateMissionStatistics, createMissionRankings, type MissionStatisticRow } from "./mission-statistics.ts";
+import { calculateMissionStatistics, compareMissionRows, createMissionRankings, type MissionStatisticRow } from "./mission-statistics.ts";
 import type { StatisticsGame } from "./types.ts";
 
 const catalog = [{ id: "m1", name: "Mission 1", sortOrder: 1 }, { id: "m2", name: "Mission 2", sortOrder: 2 }];
-const game = (id: string, rows: Array<[string, boolean, number, number]>): StatisticsGame => ({ id, playedAt: new Date(`2026-01-0${id}T12:00:00Z`), createdAt: new Date(`2026-01-0${id}T13:00:00Z`), participants: rows.map(([missionId, missionKept, points, placement], i) => ({ id: `${id}-${i}`, playerId: `p${i}`, alias: `P${i}`, imageUrl: null, points, placement, ratingBefore: 1000, ratingChange: 0, ratingAfter: 1000, missionId, missionKept })) });
+const game = (id: string, rows: Array<[string, boolean, number, number, number?]>): StatisticsGame => ({ id, playedAt: new Date(`2026-01-0${id}T12:00:00Z`), createdAt: new Date(`2026-01-0${id}T13:00:00Z`), participants: rows.map(([missionId, missionKept, points, placement, ratingChange], i) => ({ id: `${id}-${i}`, playerId: `p${i}`, alias: `P${i}`, imageUrl: null, points, placement, ratingBefore: 1000, ratingChange: ratingChange ?? 0, ratingAfter: 1000 + (ratingChange ?? 0), missionId, missionKept })) });
 
 test("Ausgeteilt zählt alle Zuordnungen, Leistung nur behaltene und nicht behaltene nur Ohne Mission", () => {
   const result = calculateMissionStatistics([game("1", [["m1", true, 100, 1], ["m1", false, 90, 2], ["m2", true, 80, 3]])], catalog);
-  const m1 = result.rows[0], without = result.rows[2];
+  const m1 = result.rows.find((row) => row.id === "m1")!, without = result.rows.find((row) => row.id === "without-mission")!;
   assert.equal(m1.drawn, 2); assert.equal(m1.kept, 1); assert.equal(m1.averagePoints, 100); assert.equal(m1.winRate, 1);
   assert.equal(m1.drawnRate, 2 / 3); assert.equal(m1.keptRate, 1 / 2);
   assert.equal(without.drawn, null); assert.equal(without.kept, 1); assert.equal(without.keptRate, 1 / 3);
@@ -38,13 +39,13 @@ test("ungerundete Werte erzeugen keinen falschen Anzeige-Gleichstand", () => {
 const rankedRow = (id: string, value: number | null, without = false): MissionStatisticRow => ({
   id, name: id, isWithoutMission: without, drawn: value, drawnRate: value, kept: value, keptRate: value,
   wins: value ?? 0, winRate: value, averagePlacement: value, averagePoints: value,
-  averageWinnerPoints: value, maxPoints: value === null ? null : { value, gameId: `game-${id}` },
+  averageWinnerPoints: value, averageRatingChange: value, maxPoints: value === null ? null : { value, gameId: `game-${id}` },
 });
 
-test("alle acht Leistungswerte verwenden Top 3, Verteilungswerte nie", () => {
+test("alle neun Leistungswerte verwenden Top 3, Verteilungswerte nie", () => {
   const rankings = createMissionRankings([rankedRow("first", 40), rankedRow("second", 30), rankedRow("third", 20), rankedRow("fourth", 10)]);
   assert.deepEqual(rankings.drawn, {}); assert.deepEqual(rankings.drawnRate, {});
-  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageWinnerPoints", "maxPoints"] as const) {
+  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"] as const) {
     assert.deepEqual(rankings[metric], { first: 1, second: 2, third: 3 });
   }
   assert.deepEqual(rankings.averagePlacement, { fourth: 1, third: 2, second: 3 });
@@ -57,8 +58,51 @@ test("klassische Wettbewerbsplatzierung überspringt nach zwei ersten Plätzen R
 
 test("Ohne Mission nimmt an sämtlichen Leistungsrankings einschließlich Behalten teil", () => {
   const rankings = createMissionRankings([rankedRow("mission", 10), rankedRow("without-mission", 20, true)]);
-  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageWinnerPoints", "maxPoints"] as const) assert.equal(rankings[metric]["without-mission"], 1);
+  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"] as const) assert.equal(rankings[metric]["without-mission"], 1);
   assert.equal(rankings.averagePlacement["without-mission"], 2);
+});
+
+test("Ø Elo ± mittelt exakte positive und negative Änderungen aus den relevanten Teilnahmen", () => {
+  const result = calculateMissionStatistics([
+    game("1", [["m1", true, 100, 1, 8.25], ["m2", true, 90, 2, -3.1], ["m1", false, 80, 3, -4.2]]),
+    game("2", [["m1", true, 95, 2, 4.55], ["m2", true, 105, 1, -1.1], ["m2", false, 70, 4, 2.2]]),
+  ], catalog);
+  assert.equal(result.rows.find((row) => row.id === "m1")?.averageRatingChange, 6.4);
+  assert.equal(result.rows.find((row) => row.id === "m2")?.averageRatingChange, -2.1);
+  assert.equal(result.rows.find((row) => row.id === "without-mission")?.averageRatingChange, -1);
+});
+
+test("Ø Elo ± nimmt mit ungerundeten Rohwerten an der Top-3-Hervorhebung teil", () => {
+  const rows = [rankedRow("first", 6.44), rankedRow("second", 6.43), rankedRow("third", 0), rankedRow("fourth", -2.1)];
+  assert.deepEqual(createMissionRankings(rows).averageRatingChange, { first: 1, second: 2, third: 3 });
+});
+
+test("Standardsortierung verwendet Ø Platz, Sieg-%, Ø Punkte, Name und stabile ID", () => {
+  const row = (id: string, name: string, placement: number | null, winRate: number | null, points: number | null, without = false) => ({
+    ...rankedRow(id, 1, without), name, averagePlacement: placement, winRate, averagePoints: points,
+  });
+  const rows = [
+    row("low", "Zulu", 2, .9, 120),
+    row("win", "Zulu", 1.5, .6, 80),
+    row("points", "Zulu", 1.5, .5, 100),
+    row("alpha-b", "Alpha", 1.5, .5, 90),
+    row("alpha-a", "Alpha", 1.5, .5, 90),
+    row("without-mission", "Ohne Mission", 1.2, .2, 60, true),
+    row("none", "Keine Daten", null, null, null),
+  ];
+  assert.deepEqual(rows.sort(compareMissionRows).map((entry) => entry.id), ["without-mission", "win", "points", "alpha-a", "alpha-b", "low", "none"]);
+});
+
+test("Missions-UI enthält ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzeichnung", () => {
+  const page = readFileSync("app/statistik/page.tsx", "utf8");
+  assert.match(page, /<th>Ø Elo ±<\/th>/);
+  assert.match(page, /value > 0 \? `\+\$\{number/);
+  assert.match(page, /value < 0 \? `−\$\{number/);
+  assert.match(page, /averageRatingChange/);
+  assert.match(page, /nach durchschnittlicher Platzierung sortiert/);
+  assert.match(page, /index < 3 \? missionMedals/);
+  assert.match(page, /: `\$\{index \+ 1\}\.\`/);
+  assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
 });
 
 test("Ranking vergleicht ungerundete Rohwerte und ignoriert null sowie NaN", () => {

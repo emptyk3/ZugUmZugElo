@@ -1,16 +1,36 @@
 import { compareGames, equalNumber, type MissionCatalogItem, type StatisticsGame } from "./types.ts";
 
-export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "averagePoints" | "averageWinnerPoints" | "maxPoints";
+export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "averagePoints" | "averageWinnerPoints" | "averageRatingChange" | "maxPoints";
 export type MissionStatisticRow = {
   id: string; name: string; isWithoutMission: boolean;
   drawn: number | null; drawnRate: number | null; kept: number | null; keptRate: number | null;
   wins: number; winRate: number | null; averagePlacement: number | null; averagePoints: number | null;
-  averageWinnerPoints: number | null; maxPoints: { value: number; gameId: string } | null;
+  averageWinnerPoints: number | null; averageRatingChange: number | null; maxPoints: { value: number; gameId: string } | null;
 };
 
 export type MissionRank = 1 | 2 | 3;
-const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "maxPoints"];
-const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "maxPoints"]);
+const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"];
+const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"]);
+
+const descendingNullable = (left: number | null, right: number | null) => {
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+  return right - left;
+};
+
+const ascendingNullable = (left: number | null, right: number | null) => {
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+  return left - right;
+};
+
+export function compareMissionRows(left: MissionStatisticRow, right: MissionStatisticRow) {
+  return ascendingNullable(left.averagePlacement, right.averagePlacement)
+    || descendingNullable(left.winRate, right.winRate)
+    || descendingNullable(left.averagePoints, right.averagePoints)
+    || left.name.localeCompare(right.name, "de")
+    || left.id.localeCompare(right.id);
+}
 
 export function createMissionRankings(rows: MissionStatisticRow[]) {
   return Object.fromEntries(metrics.map((metric) => {
@@ -51,6 +71,7 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
       averagePlacement: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.placement, 0) / relevant.length : null,
       averagePoints: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.points, 0) / relevant.length : null,
       averageWinnerPoints: wins.length ? wins.reduce((sum, entry) => sum + entry.row.points, 0) / wins.length : null,
+      averageRatingChange: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.ratingChange, 0) / relevant.length : null,
       maxPoints: maximumEntry ? { value: maximumEntry.row.points, gameId: maximumEntry.game.id } : null,
     };
   };
@@ -63,5 +84,5 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
   rows.push(summarize("without-mission", "Ohne Mission", without, null, without.length, true));
 
   const rankings = createMissionRankings(rows);
-  return { rows, rankings, totalDrawn };
+  return { rows: [...rows].sort(compareMissionRows), rankings, totalDrawn };
 }
