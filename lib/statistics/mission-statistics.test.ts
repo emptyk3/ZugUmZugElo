@@ -99,7 +99,7 @@ test("Missions-UI enthält ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzei
   assert.match(page, /value > 0 \? `\+\$\{number/);
   assert.match(page, /value < 0 \? `−\$\{number/);
   assert.match(page, /averageRatingChange/);
-  assert.match(page, /nach durchschnittlicher Platzierung sortiert/);
+  assert.match(page, /Die Reihenfolge richtet sich nach der durchschnittlichen Platzierung/);
   assert.match(page, /index < 3 \? missionMedals/);
   assert.match(page, /: `\$\{index \+ 1\}\.\`/);
   assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
@@ -109,9 +109,14 @@ test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt m
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const css = readFileSync("app/statistik/page.module.css", "utf8");
   assert.match(page, /styles\.missionTableCard/);
-  assert.match(css, /\.missionTableCard\{width:min\(1320px,100%\)\}/);
-  assert.match(css, /\.missionTableWrap th:first-child\{min-width:230px;white-space:nowrap\}/);
+  assert.match(page, /<colgroup><col className=\{styles\.missionNameColumn\} \/><col className=\{styles\.missionDrawnColumn\}/);
+  assert.match(page, /<th>Gezogen<\/th><th>% Gezogen<\/th>/);
+  assert.match(page, /<\/table><\/div><p className=\{styles\.missionExplanation\}>/);
+  assert.match(css, /\.missionPage \.hero,\.missionPage \.tabs,\.missionTableCard\{width:min\(1320px,100%\)\}/);
+  assert.match(css, /\.missionTableWrap th:first-child\{min-width:225px;white-space:nowrap\}/);
   assert.match(css, /\.missionTableWrap thead th\{white-space:nowrap\}/);
+  assert.match(css, /\.missionNameColumn\{width:225px\}\.missionDrawnColumn\{width:54px\}/);
+  assert.match(css, /\.missionExplanation span\{display:block\}/);
   assert.match(css, /@media\(min-width:1280px\)/);
   assert.match(css, /\.missionTableWrap\{overflow-x:visible\}/);
   assert.match(css, /\.tableWrap\{overflow-x:auto/);
