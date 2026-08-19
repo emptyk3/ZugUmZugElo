@@ -116,8 +116,8 @@ test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt m
   assert.match(page, /<th className=\{styles\.missionRankHeader\}>Rang<\/th><th>Mission<\/th><th>Gezogen<\/th><th>% Gezogen<\/th>/);
   assert.match(page, /<td className=\{styles\.missionRankCell\}>.*<\/td><th scope="row">\{row\.name\}<\/th>/);
   assert.match(page, /<\/table><\/div><p className=\{styles\.missionExplanation\}>/);
-  assert.match(css, /\.hero,\.tabs,\.area,\.gameStatistics,\.tableCard\{width:min\(1320px,100%\);margin-inline:auto\}/);
-  assert.match(css, /\.gameStatistics>\*\{min-width:0;box-sizing:border-box\}/);
+  assert.match(css, /\.hero,\.tabs,\.area,\.gameStatistics,\.missionStatistics,\.tableCard\{width:min\(1320px,100%\);margin-inline:auto\}/);
+  assert.match(css, /\.gameStatistics>\*,\.missionStatistics>\*\{min-width:0;box-sizing:border-box\}/);
   assert.doesNotMatch(page, /styles\.missionPage/);
   assert.match(css, /\.missionTableWrap th:nth-child\(2\)\{min-width:183px;padding-inline:5px;white-space:nowrap;text-align:left\}/);
   assert.match(css, /\.missionTableWrap thead th\{white-space:nowrap\}/);
