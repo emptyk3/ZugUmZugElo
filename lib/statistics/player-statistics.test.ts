@@ -4,7 +4,7 @@ import { calculatePlayerStatistics } from "./player-statistics.ts";
 import type { StatisticsGame, StatisticsPlayer } from "./types.ts";
 
 const players: StatisticsPlayer[] = [
-  { id: "a", alias: "Anna", imageUrl: null, currentRating: 1200 }, { id: "b", alias: "Berta", imageUrl: null, currentRating: 1200 },
+  { id: "a", alias: "Anna", imageUrl: null, currentRating: 1300 }, { id: "b", alias: "Berta", imageUrl: null, currentRating: 1300 },
   { id: "c", alias: "Clara", imageUrl: null, currentRating: 1100 }, { id: "d", alias: "Dora", imageUrl: null, currentRating: 1000 },
 ];
 const game = (n: number, rows: Array<{ id: string; place: number; points: number; change: number; before?: number }>): StatisticsGame => ({ id: `g${n}`, playedAt: new Date(`2026-01-${String(n).padStart(2, "0")}T12:00:00Z`), createdAt: new Date(`2026-01-${String(n).padStart(2, "0")}T13:00:00Z`), participants: rows.map((r, i) => ({ id: `g${n}-${i}`, playerId: r.id, alias: r.id.toUpperCase(), imageUrl: null, points: r.points, placement: r.place, ratingBefore: r.before ?? 1000, ratingChange: r.change, ratingAfter: (r.before ?? 1000) + r.change, missionId: "m1", missionKept: true })) });
@@ -46,4 +46,3 @@ test("gleitende Fünfer- und Zehnerfenster nutzen eigene Partien und verlinken d
   assert.equal(result.bestFiveGameGain[0].firstGameId, "g6"); assert.equal(result.bestFiveGameGain[0].games, 5);
   assert.equal(result.bestTenGameGain[0].firstGameId, "g1"); assert.equal(result.bestTenGameGain[0].games, 10);
 });
-

@@ -82,7 +82,6 @@ export default function AddGamePage() {
   const [focusedPlayerId, setFocusedPlayerId] = useState<number | null>(null);
   const [newPlayerTargetId, setNewPlayerTargetId] = useState<number | null>(null);
   const [newPlayerName, setNewPlayerName] = useState("");
-  const [newPlayerLevel, setNewPlayerLevel] = useState<"beginner" | "advanced">("beginner");
   const [newPlayerError, setNewPlayerError] = useState("");
   const [photoName, setPhotoName] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -199,7 +198,6 @@ export default function AddGamePage() {
       participants[0].id;
     setNewPlayerTargetId(resolvedTarget);
     setNewPlayerName("");
-    setNewPlayerLevel("beginner");
     setNewPlayerError("");
     setFocusedPlayerId(null);
   }
@@ -214,7 +212,7 @@ export default function AddGamePage() {
     if (newPlayerTargetId === null || !newPlayerName.trim() || isCreatingPlayer) return;
     setNewPlayerError("");
     startCreatingPlayer(async () => {
-      const result = await createPlayer({ alias: newPlayerName, level: newPlayerLevel });
+      const result = await createPlayer({ alias: newPlayerName });
       if (result.error || !result.player) {
         setNewPlayerError(result.error ?? "Der Spieler konnte nicht angelegt werden.");
         return;
@@ -661,11 +659,7 @@ export default function AddGamePage() {
               <span>Alias</span>
               <input value={newPlayerName} onChange={(event) => setNewPlayerName(event.target.value)} placeholder="Spieler-Alias" maxLength={80} autoFocus />
             </label>
-            <fieldset className={styles.levelChoice}>
-              <legend>Startniveau</legend>
-              <label><input type="radio" name="level" checked={newPlayerLevel === "beginner"} onChange={() => setNewPlayerLevel("beginner")} /><span><strong>Anfänger</strong><small>Startet mit 1200 Elo</small></span></label>
-              <label><input type="radio" name="level" checked={newPlayerLevel === "advanced"} onChange={() => setNewPlayerLevel("advanced")} /><span><strong>Fortgeschritten</strong><small>Startet mit 1500 Elo</small></span></label>
-            </fieldset>
+            <p>Neue Spieler starten mit 1500 Elo.</p>
             {newPlayerError && <p className={styles.inlineError} role="alert">{newPlayerError}</p>}
             <div className={styles.dialogActions}>
               <button className={styles.secondaryButton} type="button" onClick={closeNewPlayerDialog} disabled={isCreatingPlayer}>Abbrechen</button>

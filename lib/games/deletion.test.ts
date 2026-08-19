@@ -24,7 +24,7 @@ test("Pending-Partie wird hart gelöscht, ohne unnötigen Elo-Rebuild", async ()
 });
 
 test("Entfernen einer rückdatierten Partie verändert die Elo-Historie späterer Partien", () => {
-  const players = new Map([["a", 1200], ["b", 1200], ["c", 1200], ["d", 1200]]);
+  const players = new Map([["a", 1500], ["b", 1500], ["c", 1500], ["d", 1500]]);
   const game = (id: string, day: number, order: string[]): ChronologicalGame => ({ id, playedAt: new Date(`2026-01-0${day}T12:00:00Z`), createdAt: new Date(`2026-01-0${day}T13:00:00Z`), participants: order.map((playerId, index) => ({ id: `${id}-${playerId}`, playerId, points: 100 - index * 10, tiebreakRank: null })) });
   const first = game("g1", 1, ["a", "b", "c", "d"]), deleted = game("g2", 2, ["d", "c", "b", "a"]), later = game("g3", 3, ["a", "c", "b", "d"]);
   const withDeleted = calculateChronologicalRatings(players, [first, deleted, later]);

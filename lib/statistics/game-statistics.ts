@@ -53,15 +53,21 @@ function summarize(games: StatisticsGame[]): GameStatisticColumn {
 export function calculateGameStatistics(games: StatisticsGame[]) {
   const fourPlayerGames = games.filter((game) => game.participants.length === 4);
   const fivePlayerGames = games.filter((game) => game.participants.length === 5);
+  // Build every timeline from its own game set. Category timelines must never
+  // be filtered from an already accumulated total timeline.
+  const totalTimeline = buildGamePointsTimeline(games);
+  const fourPlayerTimeline = buildGamePointsTimeline(fourPlayerGames);
+  const fivePlayerTimeline = buildGamePointsTimeline(fivePlayerGames);
+
   return {
     total: summarize(games),
     fourPlayers: summarize(fourPlayerGames),
     fivePlayers: summarize(fivePlayerGames),
     unexpectedPlayerCountGames: games.length - fourPlayerGames.length - fivePlayerGames.length,
     timelines: {
-      total: buildGamePointsTimeline(games),
-      fourPlayers: buildGamePointsTimeline(fourPlayerGames),
-      fivePlayers: buildGamePointsTimeline(fivePlayerGames),
+      total: totalTimeline,
+      fourPlayers: fourPlayerTimeline,
+      fivePlayers: fivePlayerTimeline,
     },
   };
 }

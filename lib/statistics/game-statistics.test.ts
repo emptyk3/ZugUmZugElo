@@ -50,18 +50,28 @@ test("Zeitreihe verwendet den gespeicherten Erstplatzierten", () => {
   assert.equal(entry.winnerPoints, 130);
 });
 
-test("Vierer- und Fünferzeitreihen filtern und kumulieren unabhängig", () => {
+test("Gesamt-, Vierer- und Fünferzeitreihen kumulieren ihre Datenmengen unabhängig", () => {
   const result = calculateGameStatistics([
-    game("1", [100, 90, 80, 70]),
-    game("2", [200, 20, 20, 20, 20]),
-    game("3", [140, 100, 90, 80]),
+    game("1", [300, 30, 20]),
+    game("2", [200, 80, 70, 60, 50]),
+    game("3", [140, 120, 110, 100]),
+    game("4", [180, 100, 90, 80, 70]),
+    game("5", [160, 130, 120, 110]),
   ]);
-  assert.deepEqual(result.timelines.fourPlayers.map((row) => row.gameId), ["1", "3"]);
-  assert.deepEqual(result.timelines.fivePlayers.map((row) => row.gameId), ["2"]);
-  assert.deepEqual(result.timelines.fourPlayers.map((row) => row.cumulativeWinnerAverage), [100, 120]);
-  assert.deepEqual(result.timelines.fivePlayers.map((row) => row.cumulativeWinnerAverage), [200]);
-  assert.equal(result.timelines.fourPlayers[1].cumulativePlayerAverage, 750 / 8);
-  assert.equal(result.timelines.fivePlayers[0].cumulativePlayerAverage, 56);
+
+  assert.deepEqual(result.timelines.total.map((row) => row.gameId), ["1", "2", "3", "4", "5"]);
+  assert.deepEqual(result.timelines.fourPlayers.map((row) => row.gameId), ["3", "5"]);
+  assert.deepEqual(result.timelines.fivePlayers.map((row) => row.gameId), ["2", "4"]);
+
+  for (const timeline of [result.timelines.total, result.timelines.fourPlayers, result.timelines.fivePlayers]) {
+    assert.equal(timeline[0].cumulativeWinnerAverage, timeline[0].winnerPoints);
+    assert.equal(timeline[0].cumulativePlayerAverage, timeline[0].gameAveragePoints);
+    assert.equal(timeline[1].cumulativeWinnerAverage, (timeline[0].winnerPoints + timeline[1].winnerPoints) / 2);
+  }
+
+  assert.equal(result.timelines.total[1].cumulativePlayerAverage, 810 / 8);
+  assert.equal(result.timelines.fourPlayers[1].cumulativePlayerAverage, 990 / 8);
+  assert.equal(result.timelines.fivePlayers[1].cumulativePlayerAverage, 980 / 10);
 });
 
 test("eine einzelne Partie und leere Kategorien erzeugen gültige Zeitreihen", () => {

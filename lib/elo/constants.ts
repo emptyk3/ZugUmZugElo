@@ -1,0 +1,1 @@
+export const DEFAULT_INITIAL_RATING = 1500;

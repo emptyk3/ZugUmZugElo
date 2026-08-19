@@ -3,6 +3,7 @@
 import { GameReviewReason, GameStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { calculateMultiplayerElo, ELO_K_FACTOR } from "@/lib/elo";
+import { DEFAULT_INITIAL_RATING } from "@/lib/elo/constants";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { gameSubmissionPolicy } from "@/lib/auth/policy";
@@ -44,19 +45,13 @@ export async function getGameFormOptions() {
   return { players, missions };
 }
 
-export async function createPlayer(input: { alias: string; level: "beginner" | "advanced" }) {
+export async function createPlayer(input: { alias: string }) {
   const user = await requireUser("/partie-eintragen");
   const policy = gameSubmissionPolicy(user);
   if (!policy.allowed) return { error: policy.message ?? "Keine Berechtigung." };
   const alias = input.alias.trim();
   if (!alias) return { error: "Bitte gib einen Alias ein." };
   if (alias.length > 80) return { error: "Der Alias darf höchstens 80 Zeichen lang sein." };
-  if (input.level !== "beginner" && input.level !== "advanced") {
-    return { error: "Bitte wähle ein gültiges Startniveau." };
-  }
-
-  const initialRating = input.level === "beginner" ? 1200 : 1500;
-
   try {
     const player = await prisma.$transaction(
       async (transaction) => {
@@ -73,8 +68,8 @@ export async function createPlayer(input: { alias: string; level: "beginner" | "
         return transaction.player.create({
           data: {
             alias,
-            initialRating,
-            currentRating: initialRating,
+            initialRating: DEFAULT_INITIAL_RATING,
+            currentRating: DEFAULT_INITIAL_RATING,
             isActive: true,
             createdByUserId: user.id,
             aliases: { create: { alias } },

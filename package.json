@@ -14,6 +14,7 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "elo:rebuild-all-1500": "node --experimental-strip-types scripts/rebuild-all-elo-1500.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {

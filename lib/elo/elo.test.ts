@@ -32,7 +32,7 @@ describe("calculateMultiplayerElo", () => {
   test("verwendet bei unterschiedlichen Elo-Werten für jedes Duell die Ausgangswerte", () => {
     const participants = [
       player("A", 120, 1800), player("B", 100, 1600),
-      player("C", 80, 1400), player("D", 60, 1200),
+      player("C", 80, 1400), player("D", 60, 1250),
     ];
     const results = calculateMultiplayerElo(participants);
     const expectedWinnerChange = participants.slice(1).reduce(
@@ -42,9 +42,9 @@ describe("calculateMultiplayerElo", () => {
     assert.equal(results.reduce((sum, result) => sum + result.ratingChange, 0), 0);
   });
 
-  test("belohnt einen erfolgreichen Anfänger gegen Fortgeschrittene deutlich", () => {
+  test("belohnt einen erfolgreichen Spieler gegen deutlich höher bewertete Gegner", () => {
     const results = calculateMultiplayerElo([
-      player("Anfänger", 130, 1000), player("Profi 1", 110, 1600),
+      player("Außenseiter", 130, 1000), player("Favorit 1", 110, 1600),
       player("Profi 2", 90, 1600), player("Profi 3", 70, 1600),
     ]);
     assert.ok(results[0].ratingChange > 58);

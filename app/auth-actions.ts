@@ -9,6 +9,7 @@ import { createSecureToken, hashToken } from "@/lib/auth/tokens";
 import { mailDeliveryConfigured, sendAccountLink } from "@/lib/auth/mail";
 import { mayLogin } from "@/lib/auth/policy";
 import { emailVerificationRequired,registrationInitialStatus } from "@/lib/config";
+import { DEFAULT_INITIAL_RATING } from "@/lib/elo/constants";
 
 export type FormState = { error?: string; success?: string };
 const normalizeEmail = (value: string) => value.trim().toLocaleLowerCase("en-US");
@@ -21,12 +22,10 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const repeat = String(formData.get("passwordRepeat") ?? "");
-  const level = String(formData.get("level") ?? "beginner");
   if (!firstName || !lastName || !alias) return { error: "Vorname, Nachname und Alias sind Pflichtfelder." };
   if (!validEmail(email)) return { error: "Bitte gib eine gültige E-Mail-Adresse ein." };
   if (password !== repeat) return { error: "Die Passwörter stimmen nicht überein." };
   const passwordError = validatePassword(password); if (passwordError) return { error: passwordError };
-  if (!['beginner', 'advanced'].includes(level)) return { error: "Ungültiges Startniveau." };
   const passwordHash = await hashPassword(password);
   const verificationRequired = emailVerificationRequired();
   const verification = verificationRequired ? createSecureToken() : null;
@@ -40,8 +39,7 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
         await tx.playerClaim.create({ data: { playerId: aliasCollision.id, submittedByUserId: user.id, status: "PENDING" } });
         existingPlayerClaimCreated = true;
       } else {
-        const rating = level === "advanced" ? 1500 : 1200;
-        await tx.player.create({ data: { alias, initialRating: rating, currentRating: rating, userId: user.id, aliases: { create: { alias } } } });
+        await tx.player.create({ data: { alias, initialRating: DEFAULT_INITIAL_RATING, currentRating: DEFAULT_INITIAL_RATING, userId: user.id, aliases: { create: { alias } } } });
       }
       if (verification) await tx.emailVerificationToken.create({ data: { userId: user.id, tokenHash: verification.tokenHash, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
