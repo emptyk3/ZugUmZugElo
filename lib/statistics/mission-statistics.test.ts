@@ -105,6 +105,18 @@ test("Missions-UI enthält ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzei
   assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
 });
 
+test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt mobil scrollbar", () => {
+  const page = readFileSync("app/statistik/page.tsx", "utf8");
+  const css = readFileSync("app/statistik/page.module.css", "utf8");
+  assert.match(page, /styles\.missionTableCard/);
+  assert.match(css, /\.missionTableCard\{width:min\(1320px,100%\)\}/);
+  assert.match(css, /\.missionTableWrap th:first-child\{min-width:230px;white-space:nowrap\}/);
+  assert.match(css, /\.missionTableWrap thead th\{white-space:nowrap\}/);
+  assert.match(css, /@media\(min-width:1280px\)/);
+  assert.match(css, /\.missionTableWrap\{overflow-x:visible\}/);
+  assert.match(css, /\.tableWrap\{overflow-x:auto/);
+});
+
 test("Ranking vergleicht ungerundete Rohwerte und ignoriert null sowie NaN", () => {
   const rows = [rankedRow("precise-first", 100.04), rankedRow("precise-second", 100.03), rankedRow("none", null), rankedRow("invalid", Number.NaN)];
   const rankings = createMissionRankings(rows);
