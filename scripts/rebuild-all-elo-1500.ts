@@ -1,10 +1,10 @@
-import { loadEnvConfig } from "@next/env";
+import nextEnv from "@next/env";
 import { GameStatus, PrismaClient } from "@prisma/client";
 import { DEFAULT_INITIAL_RATING } from "../lib/elo/constants.ts";
 import { rebuildAllEloAt1500InTransaction } from "../lib/elo/rebuild-all-1500.ts";
 import { ELO_RECALCULATION_TRANSACTION_OPTIONS } from "../lib/prisma/transaction-options.ts";
 
-loadEnvConfig(process.cwd());
+nextEnv.loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
 const execute = process.argv.includes("--execute");
 

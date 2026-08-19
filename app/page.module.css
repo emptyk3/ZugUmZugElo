@@ -239,3 +239,15 @@
   .avatar { display: none; }
   .rating { font-size: 21px; }
 }
+
+.ratingCell {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.ratingCell small {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}

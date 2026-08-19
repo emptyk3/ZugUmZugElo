@@ -4,6 +4,7 @@ import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { formatElo } from "@/lib/format/elo";
+import { calculateRankingRating, compareRankingPlayers } from "@/lib/players/ranking-rating";
 
 export const dynamic = "force-dynamic";
 
@@ -14,15 +15,18 @@ async function loadLeaderboard() {
       deletedAt: null,
       mergedIntoPlayerId: null,
     },
-    orderBy: [
-      { currentRating: "desc" },
-      { alias: "asc" },
-    ],
+    orderBy: [{ alias: "asc" }, { id: "asc" }],
     select: {
       id: true,
       alias: true,
       currentRating: true,
       user: { select: { profileImageUrl: true } },
+      participations: {
+        where: { game: { status: GameStatus.CONFIRMED, deletedAt: null } },
+        orderBy: [{ game: { playedAt: "desc" } }, { game: { createdAt: "desc" } }, { gameId: "desc" }],
+        take: 1,
+        select: { game: { select: { playedAt: true } } },
+      },
       _count: {
         select: {
           participations: {
@@ -40,11 +44,19 @@ async function loadLeaderboard() {
 }
 
 export default async function Home() {
-  let players: Awaited<ReturnType<typeof loadLeaderboard>> = [];
+  type LoadedPlayer = Awaited<ReturnType<typeof loadLeaderboard>>[number];
+  type DisplayPlayer = LoadedPlayer & ReturnType<typeof calculateRankingRating> & { confirmedGames: number };
+  let players: DisplayPlayer[] = [];
   let loadError = false;
 
   try {
-    players = await loadLeaderboard();
+    const now = new Date();
+    const loadedPlayers = await loadLeaderboard();
+    players = loadedPlayers.map((player) => ({
+      ...player,
+      ...calculateRankingRating(player.currentRating, player.participations[0]?.game.playedAt ?? null, now),
+      confirmedGames: player._count.participations,
+    })).sort(compareRankingPlayers);
   } catch (error) {
     console.error("Rangliste konnte nicht geladen werden:", error);
     loadError = true;
@@ -106,7 +118,12 @@ export default async function Home() {
                       <span className={styles.games}>{player._count.participations}</span>
                     </td>
                     <td data-label="Elo">
-                      <strong className={styles.rating}>{formatElo(player.currentRating)}</strong>
+                      <div className={styles.ratingCell}>
+                        <strong className={styles.rating}>{formatElo(player.rankingRating)}</strong>
+                        {player.inactivityPenalty > 0 && <small title={`Echte Elo: ${formatElo(player.currentRating)} · Inaktiv seit ${player.inactiveDays} Tagen · Ranglisten-Malus: −${player.inactivityPenalty}`}>
+                          {formatElo(player.currentRating)} echte Elo · −{player.inactivityPenalty} Inaktivität
+                        </small>}
+                      </div>
                     </td>
                   </tr>
                 ))}
