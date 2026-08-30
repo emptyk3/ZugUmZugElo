@@ -109,8 +109,9 @@ test("Standardsortierung verwendet Ø Platz, Sieg-%, Ø Punkte, Name und stabile
 test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzeichnung", () => {
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const statistics = readFileSync("lib/statistics/mission-statistics.ts", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th>σ Platz<\/th><th>Ø Punkte<\/th><th>σ Punkte<\/th><th>Ø Elo ±<\/th>/);
-  assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
+  assert.match(page, /<th>Ø Platz<\/th><th>σ<\/th><th>Ø Punkte<\/th><th>σ<\/th><th>Ø Elo ±<\/th>/);
+  assert.equal(page.match(/<th>σ<\/th>/g)?.length, 2);
+  assert.doesNotMatch(page, /Σ|σ Platz|σ Punkte/);
   assert.doesNotMatch(page, /<th>Ø Punkte \(Sieg\)<\/th>|<th>Max\. Punkte<\/th>|rankings\.averageWinnerPoints|rankings\.maxPoints/);
   assert.doesNotMatch(statistics, /averageWinnerPoints|maxPoints/);
   assert.match(page, /<th>Ø Elo ±<\/th>/);
