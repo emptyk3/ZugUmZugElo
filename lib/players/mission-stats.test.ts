@@ -66,11 +66,14 @@ test("Standardabweichungen verändern die Auswahl der Highlights nicht", () => {
   assert.notEqual(stats.best?.pointsStandardDeviation, stats.rows.find((item) => item.id === "m2")?.pointsStandardDeviation);
 });
 
-test("Profil-Missionsstatistik zeigt σ-Spalten und σ-Werte in beiden Highlightkarten", () => {
+test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Streuungswerte mit ±", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
   assert.match(page, /<th>Ø Platz<\/th><th>σ Platz<\/th><th>Ø Punkte<\/th><th>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
-  assert.match(page, /<dt>σ Platzierung<\/dt><dd>\{fixedNumber\(mission\.placementStandardDeviation!, 2\)\}<\/dd>/);
-  assert.match(page, /<dt>σ Punkte<\/dt><dd>\{fixedNumber\(mission\.pointsStandardDeviation!, 1\)\}<\/dd>/);
+  assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
+  assert.match(page, /<dt>σ Platzierung<\/dt><dd>± \{fixedNumber\(mission\.placementStandardDeviation!, 2\)\}<\/dd>/);
+  assert.match(page, /<dt>σ Punkte<\/dt><dd>± \{fixedNumber\(mission\.pointsStandardDeviation!, 1\)\}<\/dd>/);
+  assert.match(page, /`± \$\{fixedNumber\(row\.placementStandardDeviation, 2\)\}`/);
+  assert.match(page, /`± \$\{fixedNumber\(row\.pointsStandardDeviation, 1\)\}`/);
   assert.match(page, /MissionFeature label="Beste Mission"/);
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
   assert.match(page, /row\.highestScore \? <Link/);

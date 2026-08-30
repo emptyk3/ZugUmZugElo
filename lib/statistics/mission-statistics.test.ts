@@ -110,6 +110,7 @@ test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const statistics = readFileSync("lib/statistics/mission-statistics.ts", "utf8");
   assert.match(page, /<th>Ø Platz<\/th><th>σ Platz<\/th><th>Ø Punkte<\/th><th>σ Punkte<\/th><th>Ø Elo ±<\/th>/);
+  assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
   assert.doesNotMatch(page, /<th>Ø Punkte \(Sieg\)<\/th>|<th>Max\. Punkte<\/th>|rankings\.averageWinnerPoints|rankings\.maxPoints/);
   assert.doesNotMatch(statistics, /averageWinnerPoints|maxPoints/);
   assert.match(page, /<th>Ø Elo ±<\/th>/);
@@ -123,8 +124,8 @@ test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und
   assert.match(page, /missionRankCell\}>\{index < 3 \? missionMedals/);
   assert.match(page, /: `\$\{index \+ 1\}\.\`/);
   assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
-  assert.match(page, /rank=\{statistics\.rankings\.averagePlacement\[row\.id\]\} showMedal=\{false\}>\{row\.placementStandardDeviation/);
-  assert.match(page, /rank=\{statistics\.rankings\.averagePoints\[row\.id\]\} showMedal=\{false\}>\{row\.pointsStandardDeviation/);
+  assert.match(page, /rank=\{statistics\.rankings\.averagePlacement\[row\.id\]\} showMedal=\{false\}>\{row\.placementStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.placementStandardDeviation, 2\)\}`\}/);
+  assert.match(page, /rank=\{statistics\.rankings\.averagePoints\[row\.id\]\} showMedal=\{false\}>\{row\.pointsStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.pointsStandardDeviation, 1\)\}`\}/);
   assert.match(page, /rank && showMedal &&/);
 });
 

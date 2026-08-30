@@ -11,6 +11,8 @@ const favoriteOrder = (a: OpponentStat, b: OpponentStat) =>
   b.winRate - a.winRate || b.averagePlacementDifference - a.averagePlacementDifference || a.alias.localeCompare(b.alias, "de");
 const nemesisOrder = (a: OpponentStat, b: OpponentStat) =>
   a.winRate - b.winRate || a.averagePlacementDifference - b.averagePlacementDifference || a.alias.localeCompare(b.alias, "de");
+const tableOrder = (a: OpponentStat, b: OpponentStat) =>
+  b.games - a.games || b.winRate - a.winRate || a.alias.localeCompare(b.alias, "de");
 
 export function calculateOpponentStats(input: OpponentGame[]) {
   const unique = new Map<string, OpponentGame>();
@@ -25,7 +27,7 @@ export function calculateOpponentStats(input: OpponentGame[]) {
       averagePointDifference: games.reduce((sum, row) => sum + row.ownPoints - row.opponentPoints, 0) / games.length,
     };
   });
-  const tableOpponents = allRows.filter((row) => row.games >= 1).sort(favoriteOrder);
+  const tableOpponents = allRows.filter((row) => row.games >= 1).sort(tableOrder);
   const qualifiedHighlightOpponents = allRows.filter((row) => row.games >= 5);
   const hasEnoughHighlights = qualifiedHighlightOpponents.length >= 2;
   return {

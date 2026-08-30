@@ -5,6 +5,10 @@ import { calculateOpponentStats, type OpponentGame } from "./opponent-stats.ts";
 const games = (id: string, count: number, ownPlacement: number, opponentPlacement: number, ownPoints = 100, opponentPoints = 90, alias = `Alias ${id}`): OpponentGame[] => Array.from({ length: count }, (_, index) => ({
   gameId: `g-${id}-${index}`, ownPlacement, opponentPlacement, ownPoints, opponentPoints, opponent: { id, alias, imageUrl: null },
 }));
+const mixedGames = (id: string, wins: boolean[], alias = `Alias ${id}`): OpponentGame[] => wins.map((win, index) => ({
+  gameId: `mixed-${id}-${index}`, ownPlacement: win ? 1 : 2, opponentPlacement: win ? 2 : 1, ownPoints: win ? 100 : 90, opponentPoints: win ? 90 : 100,
+  opponent: { id, alias, imageUrl: null },
+}));
 
 test("Highlights benötigen mindestens zwei Gegner mit jeweils fünf Partien", () => {
   assert.equal(calculateOpponentStats(games("a", 5, 1, 2)).favorite, null);
@@ -54,9 +58,24 @@ test("Platzierungs- und Punktedifferenz werden aus Sicht des Profilspielers bere
   assert.deepEqual({ wins: result.wins, losses: result.losses }, { wins: 5, losses: 0 });
 });
 
-test("Tiebreak verwendet Winrate, danach Platzierungsdifferenz und Alias", () => {
+test("Vergleichstabelle sortiert Gegner mit mehr gemeinsamen Partien immer weiter oben", () => {
+  const result = calculateOpponentStats([...mixedGames("many", [false, false, false]), ...mixedGames("few", [true, true])]);
+  assert.deepEqual(result.rows.map((row) => row.id), ["many", "few"]);
+});
+
+test("bei gleicher Spielanzahl entscheidet in der Vergleichstabelle die höhere Winrate", () => {
+  const result = calculateOpponentStats([...mixedGames("lower", [true, false, false]), ...mixedGames("higher", [true, true, false])]);
+  assert.deepEqual(result.rows.map((row) => row.id), ["higher", "lower"]);
+});
+
+test("bei gleicher Spielanzahl und Winrate sortiert die Vergleichstabelle den Alias alphabetisch", () => {
+  const result = calculateOpponentStats([...mixedGames("z", [true, false], "Zeta"), ...mixedGames("a", [false, true], "Alpha")]);
+  assert.deepEqual(result.rows.map((row) => row.alias), ["Alpha", "Zeta"]);
+});
+
+test("Highlight-Tiebreak verwendet weiterhin Winrate, danach Platzierungsdifferenz und Alias", () => {
   const result = calculateOpponentStats([...games("a", 5, 1, 3, 100, 90, "Zeta"), ...games("b", 5, 1, 2, 100, 90, "Alpha")]);
   assert.equal(result.favorite?.id, "a");
   assert.equal(result.nemesis?.id, "b");
-  assert.deepEqual(result.rows.map((row) => row.id), ["a", "b"]);
+  assert.deepEqual(result.rows.map((row) => row.id), ["b", "a"]);
 });
