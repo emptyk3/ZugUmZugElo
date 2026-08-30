@@ -16,6 +16,7 @@ const formatDate = (value: Date) => new Intl.DateTimeFormat("de-AT", { dateStyle
 const formatDateTime = (value: Date) => new Intl.DateTimeFormat("de-AT", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Vienna" }).format(value);
 const number = (value: number, digits = 1) => new Intl.NumberFormat("de-AT", { maximumFractionDigits: digits }).format(value);
 const fixedNumber = (value: number, digits: number) => new Intl.NumberFormat("de-AT", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+const missionDeviation = (value: number | null, digits: number) => value === null ? "—" : `± ${fixedNumber(value, digits)}`;
 const percent = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("de-AT", { style: "percent", maximumFractionDigits: 1 }).format(value);
 const signedNumber = (value: number, digits = 2) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${number(Math.abs(value), digits)}`;
 
@@ -27,7 +28,7 @@ function OpponentFeature({ label, opponent }: { label: string; opponent: Opponen
 }
 
 function MissionFeature({ label, mission }: { label: string; mission: MissionStat | null }) {
-  return <article className={styles.missionFeature}><span>{label}</span>{mission ? <><strong>{mission.name}</strong><dl><div><dt>Winrate</dt><dd>{percent(mission.winRate)}</dd></div><div><dt>Ø Platzierung</dt><dd>{number(mission.averagePlacement!, 2)}</dd></div><div><dt>σ Platzierung</dt><dd>± {fixedNumber(mission.placementStandardDeviation!, 2)}</dd></div><div><dt>Ø Punkte</dt><dd>{number(mission.averagePoints!, 1)}</dd></div><div><dt>σ Punkte</dt><dd>± {fixedNumber(mission.pointsStandardDeviation!, 1)}</dd></div></dl></> : <p>Noch nicht genügend Daten</p>}</article>;
+  return <article className={styles.missionFeature}><span>{label}</span>{mission ? <><strong>{mission.name}</strong><dl><div><dt>Winrate</dt><dd>{percent(mission.winRate)}</dd></div><div><dt>Ø Platzierung</dt><dd>{number(mission.averagePlacement!, 2)}</dd></div><div><dt>σ Platzierung</dt><dd>{missionDeviation(mission.placementStandardDeviation, 2)}</dd></div><div><dt>Ø Punkte</dt><dd>{number(mission.averagePoints!, 1)}</dd></div><div><dt>σ Punkte</dt><dd>{missionDeviation(mission.pointsStandardDeviation, 1)}</dd></div></dl></> : <p>Noch nicht genügend Daten</p>}</article>;
 }
 
 export default async function PublicPlayerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -79,9 +80,9 @@ export default async function PublicPlayerPage({ params }: { params: Promise<{ i
     { label: "Siege", value: String(profile.wins) },
     { label: "Winrate", value: percent(profile.winRate) },
     { label: "Ø Platzierung", value: profile.averagePlacement === null ? "—" : number(profile.averagePlacement, 2) },
-    { label: "σ Platzierung", value: profile.placementStandardDeviation === null ? "Keine Daten" : fixedNumber(profile.placementStandardDeviation, 2) },
+    { label: "σ Platzierung", value: profile.placementStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(profile.placementStandardDeviation, 2)}` },
     { label: "Ø Punktzahl", value: profile.averagePoints === null ? "—" : number(profile.averagePoints, 1) },
-    { label: "σ Punktzahl", value: profile.pointsStandardDeviation === null ? "Keine Daten" : fixedNumber(profile.pointsStandardDeviation, 1) },
+    { label: "σ Punktzahl", value: profile.pointsStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(profile.pointsStandardDeviation, 1)}` },
     { label: "Größtes Plus", value: profile.largestGain ? formatEloChange(profile.largestGain.value) : "—", date: profile.largestGain ? formatDate(profile.largestGain.playedAt) : undefined, href: profile.largestGain ? `/partien/${profile.largestGain.gameId}` : undefined, tone: "positive" },
     { label: "Größtes Minus", value: profile.largestLoss ? formatEloChange(profile.largestLoss.value) : "—", date: profile.largestLoss ? formatDate(profile.largestLoss.playedAt) : undefined, href: profile.largestLoss ? `/partien/${profile.largestLoss.gameId}` : undefined, tone: "negative" },
   ];
@@ -92,12 +93,12 @@ export default async function PublicPlayerPage({ params }: { params: Promise<{ i
         {previousAliases.length > 0 && <div className={styles.aliases}><small>Frühere Aliasse</small><div>{previousAliases.slice(0, 3).map((item) => <span key={item.id}>{item.alias}</span>)}</div>{previousAliases.length > 3 && <details><summary>Alle anzeigen (+{previousAliases.length - 3})</summary><div>{previousAliases.slice(3).map((item) => <span key={item.id}>{item.alias}</span>)}</div></details>}</div>}
       </header>
       <section className={styles.eloPanel}><div className={styles.panelTitle}><span>Entwicklung</span><h2>Elo-Verlauf</h2></div><EloChart points={profile.timeline.map((point) => ({ ...point, playedAt: point.playedAt?.toISOString() ?? null }))} /></section>
-      <section className={styles.career}><div className={styles.careerHeader}><div className={styles.panelTitle}><span>Überblick</span><h2>Karriere</h2></div><small>Letzte Aktivität: {profile.lastActivity ? formatDateTime(profile.lastActivity) : "Keine Daten"}</small></div><dl>{career.map((item) => <div key={item.label}><dt>{item.label}</dt><dd className={item.tone ? styles[item.tone as "positive" | "negative"] : undefined}>{item.href ? <Link href={item.href}>{item.value}</Link> : item.value}</dd>{item.date && <small>{item.date}</small>}</div>)}</dl></section>
+      <section className={styles.career}><div className={styles.careerHeader}><div className={styles.panelTitle}><span>Überblick</span><h2>Karriere</h2></div><small>Letzte Aktivität: {profile.lastActivity ? formatDateTime(profile.lastActivity) : "Keine Daten"}</small></div><dl>{career.map((item) => <div key={item.label}><dt className={item.label === "σ Platzierung" || item.label === "σ Punktzahl" ? styles.sigmaLabel : undefined}>{item.label}</dt><dd className={item.tone ? styles[item.tone as "positive" | "negative"] : undefined}>{item.href ? <Link href={item.href}>{item.value}</Link> : item.value}</dd>{item.date && <small>{item.date}</small>}</div>)}</dl></section>
     </section>
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Nach Aufgabe</span><h2>Missionsstatistik</h2></div></div>
       <div className={styles.highlights}><MissionFeature label="Beste Mission" mission={missions.best} /><MissionFeature label="Schlechteste Mission" mission={missions.worst} /></div>
-      <div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th>σ Platz</th><th>Ø Punkte</th><th>σ Punkte</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><th>{row.name}</th><td>{row.games}</td><td>{row.wins}</td><td>{percent(row.winRate)}</td><td>{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</td><td>{row.placementStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(row.placementStandardDeviation, 2)}`}</td><td>{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</td><td>{row.pointsStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(row.pointsStandardDeviation, 1)}`}</td><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><td>{row.isWithoutMission ? "—" : percent(row.keptRate)}</td></tr>)}</tbody></table></div>
+      <div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th className={styles.sigmaHeader}>σ Platz</th><th>Ø Punkte</th><th className={styles.sigmaHeader}>σ Punkte</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><th>{row.name}</th><td>{row.games}</td><td>{row.wins}</td><td>{percent(row.winRate)}</td><td>{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</td><td>{missionDeviation(row.placementStandardDeviation, 2)}</td><td>{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</td><td>{missionDeviation(row.pointsStandardDeviation, 1)}</td><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><td>{row.isWithoutMission ? "—" : percent(row.keptRate)}</td></tr>)}</tbody></table></div>
     </section>
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Direktvergleich</span><h2>Gegnerstatistik</h2></div></div><div className={styles.opponentHighlights}><OpponentFeature label="Lieblingsgegner" opponent={opponents.favorite} /><OpponentFeature label="Erzfeind" opponent={opponents.nemesis} /></div>

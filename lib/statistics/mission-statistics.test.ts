@@ -109,8 +109,8 @@ test("Standardsortierung verwendet Ø Platz, Sieg-%, Ø Punkte, Name und stabile
 test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzeichnung", () => {
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const statistics = readFileSync("lib/statistics/mission-statistics.ts", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th>σ<\/th><th>Ø Punkte<\/th><th>σ<\/th><th>Ø Elo ±<\/th>/);
-  assert.equal(page.match(/<th>σ<\/th>/g)?.length, 2);
+  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Ø Elo ±<\/th>/);
+  assert.equal(page.match(/className=\{styles\.sigmaHeader\}>σ<\/th>/g)?.length, 2);
   assert.doesNotMatch(page, /Σ|σ Platz|σ Punkte/);
   assert.doesNotMatch(page, /<th>Ø Punkte \(Sieg\)<\/th>|<th>Max\. Punkte<\/th>|rankings\.averageWinnerPoints|rankings\.maxPoints/);
   assert.doesNotMatch(statistics, /averageWinnerPoints|maxPoints/);
@@ -144,6 +144,7 @@ test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt m
   assert.doesNotMatch(page, /styles\.missionPage/);
   assert.match(css, /\.missionTableWrap th:nth-child\(2\)\{min-width:183px;padding-inline:5px;white-space:nowrap;text-align:left\}/);
   assert.match(css, /\.missionTableWrap thead th\{white-space:nowrap\}/);
+  assert.match(css, /\.missionTableWrap thead th\.sigmaHeader\{text-transform:none\}/);
   assert.match(css, /\.missionRankColumn\{width:42px\}\.missionNameColumn\{width:183px\}/);
   assert.match(css, /\.missionRankHeader,\.missionRankCell\{padding-inline:3px!important;text-align:center!important;vertical-align:middle\}/);
   assert.match(css, /\.missionDrawnColumn\{width:54px\}/);

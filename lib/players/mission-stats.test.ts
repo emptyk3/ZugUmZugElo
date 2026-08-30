@@ -68,12 +68,16 @@ test("Standardabweichungen verändern die Auswahl der Highlights nicht", () => {
 
 test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Streuungswerte mit ±", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th>σ Platz<\/th><th>Ø Punkte<\/th><th>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
+  const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
+  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ Platz<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
+  assert.match(css, /\.tableWrap thead th\.sigmaHeader\{text-transform:none\}/);
   assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
-  assert.match(page, /<dt>σ Platzierung<\/dt><dd>± \{fixedNumber\(mission\.placementStandardDeviation!, 2\)\}<\/dd>/);
-  assert.match(page, /<dt>σ Punkte<\/dt><dd>± \{fixedNumber\(mission\.pointsStandardDeviation!, 1\)\}<\/dd>/);
-  assert.match(page, /`± \$\{fixedNumber\(row\.placementStandardDeviation, 2\)\}`/);
-  assert.match(page, /`± \$\{fixedNumber\(row\.pointsStandardDeviation, 1\)\}`/);
+  assert.match(page, /const missionDeviation = \(value: number \| null, digits: number\) => value === null \? "—" : `± \$\{fixedNumber\(value, digits\)\}`/);
+  assert.match(page, /<dt>σ Platzierung<\/dt><dd>\{missionDeviation\(mission\.placementStandardDeviation, 2\)\}<\/dd>/);
+  assert.match(page, /<dt>σ Punkte<\/dt><dd>\{missionDeviation\(mission\.pointsStandardDeviation, 1\)\}<\/dd>/);
+  assert.match(page, /<td>\{missionDeviation\(row\.placementStandardDeviation, 2\)\}<\/td>/);
+  assert.match(page, /<td>\{missionDeviation\(row\.pointsStandardDeviation, 1\)\}<\/td>/);
+  assert.doesNotMatch(page, /row\.(?:placement|points)StandardDeviation === null \? "Keine Daten"/);
   assert.match(page, /MissionFeature label="Beste Mission"/);
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
   assert.match(page, /row\.highestScore \? <Link/);

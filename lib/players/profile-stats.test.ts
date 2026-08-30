@@ -59,8 +59,11 @@ test("Karriere zeigt zehn Karten in exakter Paarreihenfolge und letzte Aktivitä
   ]);
   assert.doesNotMatch(careerArray, /Höchste Punktzahl|Letzte Aktivität|highestScore/);
   assert.match(page, /className=\{styles\.careerHeader\}.*Letzte Aktivität:/);
-  assert.match(page, /placementStandardDeviation === null \? "Keine Daten"/);
-  assert.match(page, /pointsStandardDeviation === null \? "Keine Daten"/);
+  assert.match(page, /label: "σ Platzierung", value: profile\.placementStandardDeviation === null \? "Keine Daten" : `± \$\{fixedNumber\(profile\.placementStandardDeviation, 2\)\}`/);
+  assert.match(page, /label: "σ Punktzahl", value: profile\.pointsStandardDeviation === null \? "Keine Daten" : `± \$\{fixedNumber\(profile\.pointsStandardDeviation, 1\)\}`/);
+  assert.doesNotMatch(careerArray, /Σ Platzierung|Σ Punktzahl/);
+  assert.match(page, /item\.label === "σ Platzierung" \|\| item\.label === "σ Punktzahl" \? styles\.sigmaLabel/);
+  assert.match(css, /\.career dt\.sigmaLabel\{text-transform:none\}/);
   assert.match(css, /\.career dl\{display:grid;grid-template-columns:1fr 1fr/);
   assert.match(css, /@media\(max-width:760px\).*\.career dl\{grid-template-columns:1fr\}/);
 });
