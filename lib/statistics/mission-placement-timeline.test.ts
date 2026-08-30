@@ -113,6 +113,7 @@ test("Chart ist vollständig auf Platzierungen, globale X-Werte und gemeinsamen 
   assert.match(chart, /placementBranchesByMission/); assert.match(chart, /<Scatter/);
   assert.match(chart, /buildMissionPlacementTooltipRows/); assert.match(chart, /gamesById\.get/); assert.match(chart, /Partie öffnen/);
   assert.match(chart, /colorsByMissionId\.get\(row\.missionId\)/);
+  for (const color of ["#c62828", "#ef6c00", "#c99700", "#2e7d32", "#1565c0", "#7b1fa2", "#212121", "#ef9a9a", "#ffb74d", "#f4d35e", "#81c784", "#90caf9", "#ce93d8", "#9e9e9e"]) assert.match(chart, new RegExp(color));
   assert.equal(chart.match(/Partie öffnen/g)?.length, 1);
   assert.match(chart, /minimumFractionDigits: 2, maximumFractionDigits: 2/);
   assert.match(gameChart, /winnerPoints/); assert.match(gameChart, /gameAveragePoints/); assert.match(gameChart, /cumulativePlayerAverage/);

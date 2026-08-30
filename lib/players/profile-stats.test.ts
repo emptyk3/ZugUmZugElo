@@ -10,8 +10,18 @@ const row = (id: string, day: number, values: Partial<ProfileParticipation> = {}
 
 test("Karrierekennzahlen verwenden gespeicherte bestätigte Werte", () => {
   const stats = calculateProfileStats(1500, [row("a", 1, { placement: 1, points: 110, ratingChange: 12, ratingAfter: 1512 }), row("b", 2, { placement: 3, points: 90, ratingBefore: 1512, ratingChange: -8, ratingAfter: 1504 })]);
-  assert.deepEqual({ highest: stats.highestRating.value, score: stats.highestScore?.value, wins: stats.wins, winRate: stats.winRate, placement: stats.averagePlacement, points: stats.averagePoints, gain: stats.largestGain?.value, loss: stats.largestLoss?.value }, { highest: 1512, score: 110, wins: 1, winRate: .5, placement: 2, points: 100, gain: 12, loss: -8 });
+  assert.deepEqual({ highest: stats.highestRating.value, wins: stats.wins, winRate: stats.winRate, placement: stats.averagePlacement, placementSigma: stats.placementStandardDeviation, points: stats.averagePoints, pointsSigma: stats.pointsStandardDeviation, gain: stats.largestGain?.value, loss: stats.largestLoss?.value }, { highest: 1512, wins: 1, winRate: .5, placement: 2, placementSigma: 1, points: 100, pointsSigma: 10, gain: 12, loss: -8 });
   assert.equal(stats.lastActivity?.toISOString(), "2026-01-02T12:00:00.000Z");
+});
+
+test("Populations-Standardabweichungen bleiben für Einzel- und Leerdaten gültig", () => {
+  const single = calculateProfileStats(1500, [row("single", 1, { placement: 4, points: 73 })]);
+  assert.equal(single.placementStandardDeviation, 0);
+  assert.equal(single.pointsStandardDeviation, 0);
+  const empty = calculateProfileStats(1500, []);
+  assert.equal(empty.placementStandardDeviation, null);
+  assert.equal(empty.pointsStandardDeviation, null);
+  assert.doesNotMatch(JSON.stringify({ single, empty }), /NaN|Infinity/);
 });
 
 test("Elo-Verlauf ist stabil nach playedAt, createdAt und id sortiert", () => {
@@ -26,6 +36,7 @@ test("Öffentliche Profilabfrage enthält keine privaten User-Felder und Verlauf
   for (const field of ["email: true", "firstName: true", "lastName: true", "passwordHash: true", "adminNote: true"]) assert.equal(page.includes(field), false);
   assert.match(page, /reverse\(\)\.slice\(0, 5\)/);
   assert.match(page, /status: GameStatus\.CONFIRMED, deletedAt: null/);
+  assert.doesNotMatch(page, /GameStatus\.PENDING|GameStatus\.REJECTED/);
 });
 
 test("Profilstruktur priorisiert Elo und trennt Karrierewerte von Datumsangaben", () => {
@@ -37,6 +48,21 @@ test("Profilstruktur priorisiert Elo und trennt Karrierewerte von Datumsangaben"
   assert.ok(css.includes(".primaryElo strong"));
   assert.ok(css.includes("font-size:clamp(38px"));
   assert.ok(page.includes("item.date && <small>"));
+});
+
+test("Karriere zeigt zehn Karten in exakter Paarreihenfolge und letzte Aktivität nur im Header", () => {
+  const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
+  const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
+  const careerArray = page.slice(page.indexOf("const career = ["), page.indexOf("];", page.indexOf("const career = [")));
+  assert.deepEqual([...careerArray.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), [
+    "Aktuelle Elo", "Höchste Elo", "Siege", "Winrate", "Ø Platzierung", "σ Platzierung", "Ø Punktzahl", "σ Punktzahl", "Größtes Plus", "Größtes Minus",
+  ]);
+  assert.doesNotMatch(careerArray, /Höchste Punktzahl|Letzte Aktivität|highestScore/);
+  assert.match(page, /className=\{styles\.careerHeader\}.*Letzte Aktivität:/);
+  assert.match(page, /placementStandardDeviation === null \? "Keine Daten"/);
+  assert.match(page, /pointsStandardDeviation === null \? "Keine Daten"/);
+  assert.match(css, /\.career dl\{display:grid;grid-template-columns:1fr 1fr/);
+  assert.match(css, /@media\(max-width:760px\).*\.career dl\{grid-template-columns:1fr\}/);
 });
 
 test("Elo-Diagramm und Profil verwenden den zentralen Ganzzahl-Formatter", () => {

@@ -25,11 +25,12 @@ export function calculateOpponentStats(input: OpponentGame[]) {
       averagePointDifference: games.reduce((sum, row) => sum + row.ownPoints - row.opponentPoints, 0) / games.length,
     };
   });
-  const rows = allRows.filter((row) => row.games >= 5).sort(favoriteOrder);
-  const hasEnoughHighlights = rows.length >= 2;
+  const tableOpponents = allRows.filter((row) => row.games >= 1).sort(favoriteOrder);
+  const qualifiedHighlightOpponents = allRows.filter((row) => row.games >= 5);
+  const hasEnoughHighlights = qualifiedHighlightOpponents.length >= 2;
   return {
-    rows,
-    favorite: hasEnoughHighlights ? [...rows].sort(favoriteOrder)[0] : null,
-    nemesis: hasEnoughHighlights ? [...rows].sort(nemesisOrder)[0] : null,
+    rows: tableOpponents,
+    favorite: hasEnoughHighlights ? [...qualifiedHighlightOpponents].sort(favoriteOrder)[0] : null,
+    nemesis: hasEnoughHighlights ? [...qualifiedHighlightOpponents].sort(nemesisOrder)[0] : null,
   };
 }

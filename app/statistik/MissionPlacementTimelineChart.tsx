@@ -11,10 +11,10 @@ import styles from "./page.module.css";
 type MissionPlacementChartGame = Omit<MissionPlacementTimeline["entries"][number], "playedAt"> & { playedAt: string };
 type Props = { series: MissionPlacementTimeline["series"]; entries: MissionPlacementChartGame[]; maximumPlacement: number };
 const palette = [
-  { light: "#c47b52", dark: "#7a4329" }, { light: "#5f9691", dark: "#2f6661" },
-  { light: "#927fb5", dark: "#5b477f" }, { light: "#c19a3f", dark: "#80601b" },
-  { light: "#77a16a", dark: "#416e3a" }, { light: "#ad7487", dark: "#784657" },
-  { light: "#7893b1", dark: "#435f7f" },
+  { light: "#ef9a9a", dark: "#c62828" }, { light: "#ffb74d", dark: "#ef6c00" },
+  { light: "#f4d35e", dark: "#c99700" }, { light: "#81c784", dark: "#2e7d32" },
+  { light: "#90caf9", dark: "#1565c0" }, { light: "#ce93d8", dark: "#7b1fa2" },
+  { light: "#9e9e9e", dark: "#212121" },
 ] as const;
 const shortDate = (timestamp: number) => new Intl.DateTimeFormat("de-AT", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Europe/Vienna" }).format(new Date(timestamp));
 const fullDate = (timestamp: number) => new Intl.DateTimeFormat("de-AT", { dateStyle: "medium", timeZone: "Europe/Vienna" }).format(new Date(timestamp));

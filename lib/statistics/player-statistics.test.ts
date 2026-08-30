@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { calculatePlayerStatistics } from "./player-statistics.ts";
 import type { StatisticsGame, StatisticsPlayer } from "./types.ts";
@@ -14,10 +15,9 @@ test("aktuelle Elo nutzt dichte geteilte Top-3-Ränge", () => {
   assert.deepEqual(top.map((p) => [p.id, p.rank]), [["a", 1], ["b", 1], ["c", 2], ["d", 3]]);
 });
 
-test("höchste Elo behält die erste stabile Erreichung und Einzelpunkte alle Rekordhalter", () => {
+test("höchste Elo behält die erste stabile Erreichung", () => {
   const result = calculatePlayerStatistics(players, [game(1, [{ id: "a", place: 1, points: 100, change: 50 }]), game(2, [{ id: "a", place: 1, points: 100, change: 50 }, { id: "b", place: 2, points: 100, change: 50 }])]);
   assert.equal(result.highestAllTime.find((r) => r.id === "a")?.gameId, "g1");
-  assert.deepEqual(result.highestScore.map((r) => r.id), ["a", "b"]);
 });
 
 test("Winrate und Durchschnittspunkte verlangen fünf Partien und wenden Tiebreaker an", () => {
@@ -45,4 +45,13 @@ test("gleitende Fünfer- und Zehnerfenster nutzen eigene Partien und verlinken d
   const result = calculatePlayerStatistics(players, games);
   assert.equal(result.bestFiveGameGain[0].firstGameId, "g6"); assert.equal(result.bestFiveGameGain[0].games, 5);
   assert.equal(result.bestTenGameGain[0].firstGameId, "g1"); assert.equal(result.bestTenGameGain[0].games, 10);
+});
+
+test("Spielerstatistik entfernt Höchstpunktzahl und Zwischenüberschrift und verwendet ein gemeinsames Rekordkarten-Grid", () => {
+  const page = readFileSync("app/statistik/page.tsx", "utf8");
+  const playerArea = page.slice(page.indexOf("function PlayersArea"), page.indexOf("function GamesArea"));
+  assert.doesNotMatch(playerArea, /Höchste Punktzahl|highestScore|Serienrekorde|groupTitle/);
+  assert.equal(playerArea.match(/styles\.cardGrid/g)?.length, 1);
+  const headings = ["Höchste aktuelle Elo", "Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
+  assert.deepEqual([...playerArea.matchAll(/<h2>([^<]+)<\/h2>/g)].map((match) => match[1]), headings);
 });

@@ -1,16 +1,20 @@
 import { compareGames, equalNumber, type MissionCatalogItem, type StatisticsGame } from "./types.ts";
 
-export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "averagePoints" | "averageWinnerPoints" | "averageRatingChange" | "maxPoints";
+export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "averagePoints" | "averageRatingChange";
 export type MissionStatisticRow = {
   id: string; name: string; isWithoutMission: boolean;
   drawn: number | null; drawnRate: number | null; kept: number | null; keptRate: number | null;
-  wins: number; winRate: number | null; averagePlacement: number | null; averagePoints: number | null;
-  averageWinnerPoints: number | null; averageRatingChange: number | null; maxPoints: { value: number; gameId: string } | null;
+  wins: number; winRate: number | null; averagePlacement: number | null; placementStandardDeviation: number | null;
+  averagePoints: number | null; pointsStandardDeviation: number | null; averageRatingChange: number | null;
 };
 
 export type MissionRank = 1 | 2 | 3;
-const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"];
-const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageWinnerPoints", "averageRatingChange", "maxPoints"]);
+const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageRatingChange"];
+const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageRatingChange"]);
+
+const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
+  ? null
+  : Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
 
 const descendingNullable = (left: number | null, right: number | null) => {
   if (left === null) return right === null ? 0 : 1;
@@ -37,7 +41,7 @@ export function createMissionRankings(rows: MissionStatisticRow[]) {
     if (!performanceMetrics.has(metric)) return [metric, {}];
     const candidates = rows.flatMap((row) => {
       if (metric === "wins" && row.winRate === null) return [];
-      const raw = metric === "maxPoints" ? row.maxPoints?.value ?? null : row[metric];
+      const raw = row[metric];
       return typeof raw === "number" && Number.isFinite(raw) ? [{ id: row.id, value: raw }] : [];
     });
     candidates.sort((left, right) => (metric === "averagePlacement" ? left.value - right.value : right.value - left.value) || left.id.localeCompare(right.id));
@@ -59,8 +63,10 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
   const totalDrawn = entries.filter((entry) => catalog.some((mission) => mission.id === entry.row.missionId)).length;
   const summarize = (id: string, name: string, relevant: typeof entries, drawn: number | null, kept: number | null, without = false): MissionStatisticRow => {
     const wins = relevant.filter((entry) => entry.row.placement === 1);
-    const maximum = relevant.length ? Math.max(...relevant.map((entry) => entry.row.points)) : null;
-    const maximumEntry = maximum === null ? null : relevant.find((entry) => entry.row.points === maximum)!;
+    const placements = relevant.map((entry) => entry.row.placement);
+    const points = relevant.map((entry) => entry.row.points);
+    const averagePlacement = placements.length ? placements.reduce((sum, value) => sum + value, 0) / placements.length : null;
+    const averagePoints = points.length ? points.reduce((sum, value) => sum + value, 0) / points.length : null;
     return {
       id, name, isWithoutMission: without, drawn,
       drawnRate: drawn === null || totalDrawn === 0 ? null : drawn / totalDrawn,
@@ -68,11 +74,11 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
         ? kept === null || totalDrawn === 0 ? null : kept / totalDrawn
         : drawn === null || kept === null || drawn === 0 ? null : kept / drawn,
       wins: wins.length, winRate: relevant.length ? wins.length / relevant.length : null,
-      averagePlacement: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.placement, 0) / relevant.length : null,
-      averagePoints: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.points, 0) / relevant.length : null,
-      averageWinnerPoints: wins.length ? wins.reduce((sum, entry) => sum + entry.row.points, 0) / wins.length : null,
+      averagePlacement,
+      placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
+      averagePoints,
+      pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
       averageRatingChange: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.ratingChange, 0) / relevant.length : null,
-      maxPoints: maximumEntry ? { value: maximumEntry.row.points, gameId: maximumEntry.game.id } : null,
     };
   };
   const rows = catalog.map((mission) => {

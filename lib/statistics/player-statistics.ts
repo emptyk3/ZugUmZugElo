@@ -88,11 +88,6 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
   const highestWinRate = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.winRate - a.winRate || b.games - a.games || b.wins - a.wins);
   const highestAveragePoints = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.averagePoints - a.averagePoints || b.games - a.games);
 
-  const maxScore = allRows.length ? Math.max(...allRows.map((item) => item.row.points)) : null;
-  const highestScore = maxScore === null ? [] : allRows.filter((item) => item.row.points === maxScore)
-    .filter((row, index, list) => list.findIndex((item) => item.row.playerId === row.row.playerId) === index)
-    .map((row) => ({ ...playerRef(row), value: row.row.points, gameId: row.game.id, playedAt: row.game.playedAt }));
-
   const winningSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.placement === 1));
   const nonLossSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.ratingChange >= 0));
   const longestWinningStreak = selectBest(winningSeries, (a, b) => b.games - a.games || b.averagePoints - a.averagePoints);
@@ -101,6 +96,5 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
   const bestFiveGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 5)), (a, b) => b.value - a.value);
   const bestTenGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 10)), (a, b) => b.value - a.value);
 
-  return { currentTop, highestAllTime: allTime, highestWinRate, highestAveragePoints, highestScore, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
+  return { currentTop, highestAllTime: allTime, highestWinRate, highestAveragePoints, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
 }
-

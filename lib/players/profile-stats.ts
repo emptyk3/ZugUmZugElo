@@ -10,6 +10,10 @@ export type ProfileParticipation = {
 
 export type LinkedExtreme = { value: number; playedAt: Date; gameId: string };
 
+const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
+  ? null
+  : Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
+
 const ascending = (a: ProfileParticipation, b: ProfileParticipation) =>
   a.game.playedAt.getTime() - b.game.playedAt.getTime() ||
   a.game.createdAt.getTime() - b.game.createdAt.getTime() ||
@@ -19,13 +23,15 @@ export function calculateProfileStats(initialRating: number, rows: ProfilePartic
   const participations = [...rows].sort(ascending);
   const games = participations.length;
   const wins = participations.filter((row) => row.placement === 1).length;
+  const placements = participations.map((row) => row.placement);
+  const points = participations.map((row) => row.points);
+  const averagePlacement = games ? placements.reduce((sum, value) => sum + value, 0) / games : null;
+  const averagePoints = games ? points.reduce((sum, value) => sum + value, 0) / games : null;
   const highestRating = participations.reduce(
     (best, row) => row.ratingAfter > best.value ? { value: row.ratingAfter, reachedAt: row.game.playedAt } : best,
     { value: initialRating, reachedAt: null as Date | null },
   );
   // Ties deliberately keep the earliest chronologically stable result.
-  const highestScore = participations.reduce<LinkedExtreme | null>((best, row) =>
-    !best || row.points > best.value ? { value: row.points, playedAt: row.game.playedAt, gameId: row.game.id } : best, null);
   const largestGain = participations.reduce<LinkedExtreme | null>((best, row) =>
     !best || row.ratingChange > best.value ? { value: row.ratingChange, playedAt: row.game.playedAt, gameId: row.game.id } : best, null);
   const largestLoss = participations.reduce<LinkedExtreme | null>((best, row) =>
@@ -34,10 +40,11 @@ export function calculateProfileStats(initialRating: number, rows: ProfilePartic
   return {
     games, wins,
     winRate: games ? wins / games : null,
-    averagePlacement: games ? participations.reduce((sum, row) => sum + row.placement, 0) / games : null,
-    averagePoints: games ? participations.reduce((sum, row) => sum + row.points, 0) / games : null,
+    averagePlacement,
+    placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
+    averagePoints,
+    pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
     highestRating,
-    highestScore,
     largestGain,
     largestLoss,
     lastActivity: participations.at(-1)?.game.playedAt ?? null,

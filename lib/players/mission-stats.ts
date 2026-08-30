@@ -6,19 +6,30 @@ export type MissionParticipation = {
 
 export type MissionStat = {
   id: string; name: string; sortOrder: number; games: number; wins: number; winRate: number | null;
-  averagePlacement: number | null; averagePoints: number | null;
+  averagePlacement: number | null; placementStandardDeviation: number | null;
+  averagePoints: number | null; pointsStandardDeviation: number | null;
   highestScore: { value: number; gameId: string; playedAt: Date } | null;
   kept: number; drawn: number; keptRate: number | null; isWithoutMission: boolean; isTotal: boolean;
 };
+
+const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
+  ? null
+  : Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
 
 function summarize(id: string, name: string, sortOrder: number, items: MissionParticipation[], drawn: number, flags: { isWithoutMission?: boolean; isTotal?: boolean } = {}): MissionStat {
   const ordered = [...items].sort((a, b) => a.playedAt.getTime() - b.playedAt.getTime() || a.gameId.localeCompare(b.gameId));
   const highest = ordered.reduce<MissionParticipation | null>((best, row) => !best || row.points > best.points ? row : best, null);
   const wins = items.filter((row) => row.placement === 1).length;
+  const placements = items.map((row) => row.placement);
+  const points = items.map((row) => row.points);
+  const averagePlacement = items.length ? placements.reduce((sum, value) => sum + value, 0) / items.length : null;
+  const averagePoints = items.length ? points.reduce((sum, value) => sum + value, 0) / items.length : null;
   return {
     id, name, sortOrder, games: items.length, wins, winRate: items.length ? wins / items.length : null,
-    averagePlacement: items.length ? items.reduce((sum, row) => sum + row.placement, 0) / items.length : null,
-    averagePoints: items.length ? items.reduce((sum, row) => sum + row.points, 0) / items.length : null,
+    averagePlacement,
+    placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
+    averagePoints,
+    pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
     highestScore: highest ? { value: highest.points, gameId: highest.gameId, playedAt: highest.playedAt } : null,
     kept: flags.isTotal ? items.filter((row) => row.missionKept).length : items.length,
     drawn, keptRate: flags.isWithoutMission || drawn === 0 ? null : (flags.isTotal ? items.filter((row) => row.missionKept).length : items.length) / drawn,
