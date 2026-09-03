@@ -29,14 +29,45 @@ test("Platzierungszeitreihe verwendet gespeicherte Platzierungen und die Mission
   assert.deepEqual(timeline.entries[1].missionValues["without-mission"].placements.map((result) => result.playerAlias), ["Anna", "Berta"]);
 });
 
-test("jede Mission berechnet den kumulativen Ø Platz unabhängig und ohne Vorabrundung", () => {
+test("Missionen mit weniger als fünf Platzierungen zeigen durchgehend deren Gesamtmittel", () => {
   const timeline = buildMissionPlacementTimeline(games, catalog);
-  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, 4);
   assert.equal(timeline.entries[2].missionValues.m1.cumulativeAveragePlacement, 2.5);
+  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, 2.5);
   assert.equal(timeline.entries[1].missionValues.m2.cumulativeAveragePlacement, 2);
-  assert.equal(timeline.entries[0].missionValues["without-mission"].cumulativeAveragePlacement, 3);
   assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 11 / 3);
+  assert.equal(timeline.entries[0].missionValues["without-mission"].cumulativeAveragePlacement, 11 / 3);
   assert.ok(timeline.entries.flatMap((entry) => Object.values(entry.missionValues)).every((value) => value.cumulativeAveragePlacement === null || Number.isFinite(value.cumulativeAveragePlacement)));
+});
+
+test("genau fünf Platzierungen verwenden für alle Durchschnittspunkte das Mittel der ersten fünf", () => {
+  const fiveGames = [1, 5, 2, 4, 3].map((placement, index) => game(`five-${index}`, `2026-02-0${index + 1}T12:00:00Z`, [
+    { id: `p${index}`, missionId: "m1", kept: true, placement },
+  ]));
+  const values = buildMissionPlacementTimeline(fiveGames, catalog).entries.map((entry) => entry.missionValues.m1.cumulativeAveragePlacement);
+  assert.deepEqual(values, [3, 3, 3, 3, 3]);
+});
+
+test("ab der sechsten Platzierung geht die Linie in den unveränderten kumulativen Durchschnitt über", () => {
+  const placements = [5, 4, 3, 2, 1, 6, 4];
+  const manyGames = placements.map((placement, index) => game(`many-${index}`, `2026-03-0${index + 1}T12:00:00Z`, [
+    { id: `p${index}`, missionId: "m1", kept: true, placement },
+  ]));
+  const values = buildMissionPlacementTimeline(manyGames, catalog).entries.map((entry) => entry.missionValues.m1.cumulativeAveragePlacement);
+  assert.deepEqual(values.slice(0, 5), [3, 3, 3, 3, 3]);
+  assert.equal(values[5], 21 / 6);
+  assert.equal(values[6], 25 / 7);
+});
+
+test("eine erst später beginnende Mission glättet ab ihrem eigenen ersten Vorkommen", () => {
+  const delayedGames = [
+    game("early", "2026-04-01T12:00:00Z", [{ id: "x", missionId: "m2", kept: true, placement: 1 }]),
+    ...[4, 2, 3].map((placement, index) => game(`delayed-${index}`, `2026-04-0${index + 2}T12:00:00Z`, [
+      { id: `d${index}`, missionId: "m1", kept: true, placement },
+    ])),
+  ];
+  const timeline = buildMissionPlacementTimeline(delayedGames, catalog);
+  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, null);
+  assert.deepEqual(timeline.entries.slice(1).map((entry) => entry.missionValues.m1.cumulativeAveragePlacement), [3, 3, 3]);
 });
 
 test("fehlende Missionen bleiben null und beginnen erst mit der ersten relevanten Partie", () => {
@@ -68,7 +99,7 @@ test("Ohne Mission verzweigt bei mehreren Ist-Werten und läuft am nächsten Ein
   assert.equal(branches.length, 2);
   assert.deepEqual(branches.map((branch) => branch.map((point) => point.placement)), [[3, 2, 4], [3, 5, 4]]);
   assert.equal(branches[0][1].visualPosition, branches[1][1].visualPosition);
-  assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 10 / 3);
+  assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 3.5);
   assert.equal(timeline.entries[1].missionValues["without-mission"].placements.length, 2);
 });
 

@@ -72,6 +72,15 @@ export function buildMissionPlacementTimeline(games: StatisticsGame[], catalog: 
       return missionId === null ? [] : [{ participant, missionId }];
     }),
   })).filter(({ participants }) => participants.length > 0);
+  const initialAverageByMission = new Map(series.map((mission) => {
+    const placements = relevantGames.flatMap(({ participants }) => participants
+      .filter((entry) => entry.missionId === mission.id)
+      .map((entry) => entry.participant.placement));
+    const initialPlacements = placements.slice(0, 5);
+    return [mission.id, initialPlacements.length
+      ? initialPlacements.reduce((sum, placement) => sum + placement, 0) / initialPlacements.length
+      : null] as const;
+  }));
 
   let visualPosition = 0;
   let maximumPlacement = 5;
@@ -87,7 +96,9 @@ export function buildMissionPlacementTimeline(games: StatisticsGame[], catalog: 
       maximumPlacement = Math.max(maximumPlacement, ...relevant.map((participant) => participant.placement));
       missionValues[mission.id] = {
         placements: relevant.map((participant) => ({ participantId: participant.playerId, playerAlias: participant.alias, placement: participant.placement })),
-        cumulativeAveragePlacement: counter.sumPlacement / counter.count,
+        cumulativeAveragePlacement: counter.count <= 5
+          ? initialAverageByMission.get(mission.id)!
+          : counter.sumPlacement / counter.count,
       };
     }
     return { gameId: game.id, playedAt: game.playedAt, visualPosition, missionValues };
