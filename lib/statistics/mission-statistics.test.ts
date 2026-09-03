@@ -134,8 +134,8 @@ test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und
   assert.match(page, /missionRankCell\}>\{index < 3 \? missionMedals/);
   assert.match(page, /: `\$\{index \+ 1\}\.\`/);
   assert.match(page, /1: "🏆", 2: "🥈", 3: "🥉"/);
-  assert.match(page, /rank=\{statistics\.rankings\.averagePlacement\[row\.id\]\} showMedal=\{false\}>\{row\.placementStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.placementStandardDeviation, 2\)\}`\}/);
-  assert.match(page, /rank=\{statistics\.rankings\.averagePoints\[row\.id\]\} showMedal=\{false\}>\{row\.pointsStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.pointsStandardDeviation, 1\)\}`\}/);
+  assert.match(page, /rank=\{statistics\.rankings\.averagePlacement\[row\.id\]\} showMedal=\{false\} goldPairSide="end">\{row\.placementStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.placementStandardDeviation, 2\)\}`\}/);
+  assert.match(page, /rank=\{statistics\.rankings\.averagePoints\[row\.id\]\} showMedal=\{false\} goldPairSide="end">\{row\.pointsStandardDeviation === null \? "Keine Daten" : `± \$\{number\(row\.pointsStandardDeviation, 1\)\}`\}/);
   assert.match(page, /rank && showMedal &&/);
 });
 
@@ -162,6 +162,19 @@ test("Missions-Tabelle hält Namen und Header auf Desktop einzeilig und bleibt m
   assert.match(css, /@media\(min-width:1280px\)/);
   assert.match(css, /\.missionTableWrap\{overflow-x:visible\}/);
   assert.match(css, /\.tableWrap\{overflow-x:auto/);
+});
+
+test("Goldene Durchschnitts- und σ-Zellen bilden gemeinsame Rahmenblöcke", () => {
+  const page = readFileSync("app/statistik/page.tsx", "utf8");
+  const css = readFileSync("app/statistik/page.module.css", "utf8");
+  assert.equal(page.match(/goldPairSide="start"/g)?.length, 2);
+  assert.equal(page.match(/goldPairSide="end"/g)?.length, 2);
+  assert.match(page, /rank === 1 && goldPairSide/);
+  assert.match(page, /showMedal=\{false\} goldPairSide="end"/);
+  assert.match(css, /\.goldPairStart\{box-shadow:inset 1px 0 [^}]+inset 0 1px [^}]+inset 0 -1px/);
+  assert.match(css, /\.goldPairEnd\{box-shadow:inset -1px 0 [^}]+inset 0 1px [^}]+inset 0 -1px/);
+  assert.doesNotMatch(css, /\.goldPairStart\{[^}]*inset -1px 0/);
+  assert.doesNotMatch(css, /\.goldPairEnd\{[^}]*inset 1px 0/);
 });
 
 test("Ranking vergleicht ungerundete Rohwerte und ignoriert null sowie NaN", () => {
