@@ -1,3 +1,5 @@
+import { median, quartiles } from "../statistics/distribution.ts";
+
 export type ProfileParticipation = {
   id: string;
   placement: number;
@@ -43,6 +45,8 @@ export function calculateProfileStats(initialRating: number, rows: ProfilePartic
     averagePlacement,
     placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
     averagePoints,
+    medianPoints: median(points),
+    pointQuartiles: quartiles(points),
     pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
     highestRating,
     largestGain,

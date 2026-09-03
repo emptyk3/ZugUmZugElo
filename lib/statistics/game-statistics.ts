@@ -1,8 +1,10 @@
 import { compareGames, type StatisticsGame } from "./types.ts";
+import { median } from "./distribution.ts";
 
 export type GameStatisticColumn = {
   games: number;
   averagePoints: number | null;
+  medianPoints: number | null;
   averageWinnerPoints: number | null;
 };
 
@@ -46,6 +48,7 @@ function summarize(games: StatisticsGame[]): GameStatisticColumn {
   return {
     games: games.length,
     averagePoints: results.length ? results.reduce((sum, row) => sum + row.points, 0) / results.length : null,
+    medianPoints: median(results.map((row) => row.points)),
     averageWinnerPoints: winners.length ? winners.reduce((sum, row) => sum + row.points, 0) / winners.length : null,
   };
 }

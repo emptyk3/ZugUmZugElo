@@ -1,16 +1,17 @@
 import { compareGames, equalNumber, type MissionCatalogItem, type StatisticsGame } from "./types.ts";
+import { median } from "./distribution.ts";
 
-export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "averagePoints" | "averageRatingChange";
+export type MissionMetric = "drawn" | "drawnRate" | "kept" | "keptRate" | "wins" | "winRate" | "averagePlacement" | "medianPoints" | "averagePoints" | "averageRatingChange";
 export type MissionStatisticRow = {
   id: string; name: string; isWithoutMission: boolean;
   drawn: number | null; drawnRate: number | null; kept: number | null; keptRate: number | null;
   wins: number; winRate: number | null; averagePlacement: number | null; placementStandardDeviation: number | null;
-  averagePoints: number | null; pointsStandardDeviation: number | null; averageRatingChange: number | null;
+  medianPoints: number | null; averagePoints: number | null; pointsStandardDeviation: number | null; averageRatingChange: number | null;
 };
 
 export type MissionRank = 1 | 2 | 3;
-const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageRatingChange"];
-const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "averagePoints", "averageRatingChange"]);
+const metrics: MissionMetric[] = ["drawn", "drawnRate", "kept", "keptRate", "wins", "winRate", "averagePlacement", "medianPoints", "averagePoints", "averageRatingChange"];
+const performanceMetrics = new Set<MissionMetric>(["kept", "keptRate", "wins", "winRate", "averagePlacement", "medianPoints", "averagePoints", "averageRatingChange"]);
 
 const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
   ? null
@@ -76,6 +77,7 @@ export function calculateMissionStatistics(games: StatisticsGame[], catalog: Mis
       wins: wins.length, winRate: relevant.length ? wins.length / relevant.length : null,
       averagePlacement,
       placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
+      medianPoints: median(points),
       averagePoints,
       pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
       averageRatingChange: relevant.length ? relevant.reduce((sum, entry) => sum + entry.row.ratingChange, 0) / relevant.length : null,

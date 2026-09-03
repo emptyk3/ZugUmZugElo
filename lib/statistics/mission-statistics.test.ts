@@ -11,6 +11,7 @@ test("Ausgeteilt zählt alle Zuordnungen, Leistung nur behaltene und nicht behal
   const result = calculateMissionStatistics([game("1", [["m1", true, 100, 1], ["m1", false, 90, 2], ["m2", true, 80, 3]])], catalog);
   const m1 = result.rows.find((row) => row.id === "m1")!, without = result.rows.find((row) => row.id === "without-mission")!;
   assert.equal(m1.drawn, 2); assert.equal(m1.kept, 1); assert.equal(m1.averagePoints, 100); assert.equal(m1.winRate, 1);
+  assert.equal(m1.medianPoints, 100); assert.equal(without.medianPoints, 90);
   assert.equal(m1.drawnRate, 2 / 3); assert.equal(m1.keptRate, 1 / 2);
   assert.equal(without.drawn, null); assert.equal(without.kept, 1); assert.equal(without.keptRate, 1 / 3);
   assert.equal(without.averagePoints, 90); assert.equal(without.winRate, 0);
@@ -30,6 +31,7 @@ test("Durchschnitte und Populations-Standardabweichungen verwenden dieselbe Date
   const empty = result.rows.find((row) => row.id === "m2")!;
   assert.equal(m1.averagePlacement, 2); assert.ok(Math.abs(m1.placementStandardDeviation! - Math.sqrt(2 / 3)) < 1e-12);
   assert.equal(m1.averagePoints, 100); assert.ok(Math.abs(m1.pointsStandardDeviation! - Math.sqrt(200 / 3)) < 1e-12);
+  assert.equal(m1.medianPoints, 100); assert.equal(without.medianPoints, 75); assert.equal(empty.medianPoints, null);
   assert.equal(without.averagePlacement, 4); assert.equal(without.placementStandardDeviation, 1);
   assert.equal(without.averagePoints, 75); assert.equal(without.pointsStandardDeviation, 5);
   assert.equal(empty.averagePlacement, null); assert.equal(empty.placementStandardDeviation, null);
@@ -49,16 +51,23 @@ test("ungerundete Werte erzeugen keinen falschen Anzeige-Gleichstand", () => {
   assert.equal(result.rankings.averagePoints.m1, 1); assert.equal(result.rankings.averagePoints.m2, 2);
 });
 
+test("Median Punkte rankt ungerundete Werte absteigend mit Gleichständen und Ohne Mission", () => {
+  const result = calculateMissionStatistics([game("1", [["m1", true, 100, 1], ["m1", true, 101, 2], ["m2", true, 100.5, 2], ["m2", false, 120, 3]])], catalog);
+  assert.equal(result.rankings.medianPoints["without-mission"], 1);
+  assert.equal(result.rankings.medianPoints.m1, 2);
+  assert.equal(result.rankings.medianPoints.m2, 2);
+});
+
 const rankedRow = (id: string, value: number | null, without = false): MissionStatisticRow => ({
   id, name: id, isWithoutMission: without, drawn: value, drawnRate: value, kept: value, keptRate: value,
   wins: value ?? 0, winRate: value, averagePlacement: value, placementStandardDeviation: value,
-  averagePoints: value, pointsStandardDeviation: value, averageRatingChange: value,
+  medianPoints: value, averagePoints: value, pointsStandardDeviation: value, averageRatingChange: value,
 });
 
 test("alle sieben Leistungswerte verwenden Top 3, Verteilungs- und σ-Werte nie", () => {
   const rankings = createMissionRankings([rankedRow("first", 40), rankedRow("second", 30), rankedRow("third", 20), rankedRow("fourth", 10)]);
   assert.deepEqual(rankings.drawn, {}); assert.deepEqual(rankings.drawnRate, {});
-  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageRatingChange"] as const) {
+  for (const metric of ["kept", "keptRate", "wins", "winRate", "medianPoints", "averagePoints", "averageRatingChange"] as const) {
     assert.deepEqual(rankings[metric], { first: 1, second: 2, third: 3 });
   }
   assert.deepEqual(rankings.averagePlacement, { fourth: 1, third: 2, second: 3 });
@@ -71,7 +80,7 @@ test("klassische Wettbewerbsplatzierung überspringt nach zwei ersten Plätzen R
 
 test("Ohne Mission nimmt an sämtlichen Leistungsrankings einschließlich Behalten teil", () => {
   const rankings = createMissionRankings([rankedRow("mission", 10), rankedRow("without-mission", 20, true)]);
-  for (const metric of ["kept", "keptRate", "wins", "winRate", "averagePoints", "averageRatingChange"] as const) assert.equal(rankings[metric]["without-mission"], 1);
+  for (const metric of ["kept", "keptRate", "wins", "winRate", "medianPoints", "averagePoints", "averageRatingChange"] as const) assert.equal(rankings[metric]["without-mission"], 1);
   assert.equal(rankings.averagePlacement["without-mission"], 2);
 });
 
@@ -109,7 +118,7 @@ test("Standardsortierung verwendet Ø Platz, Sieg-%, Ø Punkte, Name und stabile
 test("Missions-UI enthält σ-Spalten, ±-Spalte, Vorzeichen, Sortierhinweis und Rangkennzeichnung", () => {
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const statistics = readFileSync("lib/statistics/mission-statistics.ts", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Ø Elo ±<\/th>/);
+  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Median Punkte<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Ø Elo ±<\/th>/);
   assert.equal(page.match(/className=\{styles\.sigmaHeader\}>σ<\/th>/g)?.length, 2);
   assert.doesNotMatch(page, /Σ|σ Platz|σ Punkte/);
   assert.doesNotMatch(page, /<th>Ø Punkte \(Sieg\)<\/th>|<th>Max\. Punkte<\/th>|rankings\.averageWinnerPoints|rankings\.maxPoints/);

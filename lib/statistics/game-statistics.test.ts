@@ -9,6 +9,7 @@ test("Spielstatistiken teilen Vierer- und Fünferpartien auf und mitteln Teilneh
   const result = calculateGameStatistics([game("1", [100, 90, 80, 70]), game("2", [200, 20, 20, 20, 20])]);
   assert.equal(result.total.games, 2); assert.equal(result.fourPlayers.games, 1); assert.equal(result.fivePlayers.games, 1);
   assert.equal(result.total.averagePoints, 620 / 9); // kein Mittel der beiden Partiemittel
+  assert.equal(result.total.medianPoints, 70); assert.equal(result.fourPlayers.medianPoints, 85); assert.equal(result.fivePlayers.medianPoints, 20);
   assert.equal(result.total.averageWinnerPoints, 150);
 });
 
@@ -19,7 +20,7 @@ test("gespeicherter Erstplatzierter zählt auch beim Punktegleichstand", () => {
 
 test("leere und unerwartete Kategorien bleiben definiert", () => {
   const empty = calculateGameStatistics([]);
-  assert.deepEqual(empty.fourPlayers, { games: 0, averagePoints: null, averageWinnerPoints: null });
+  assert.deepEqual(empty.fourPlayers, { games: 0, averagePoints: null, medianPoints: null, averageWinnerPoints: null });
   assert.equal(calculateGameStatistics([game("1", [10, 9, 8])]).unexpectedPlayerCountGames, 1);
 });
 

@@ -19,6 +19,7 @@ const fixedNumber = (value: number, digits: number) => new Intl.NumberFormat("de
 const missionDeviation = (value: number | null, digits: number) => value === null ? "—" : `± ${fixedNumber(value, digits)}`;
 const percent = (value: number | null) => value === null ? "—" : new Intl.NumberFormat("de-AT", { style: "percent", maximumFractionDigits: 1 }).format(value);
 const signedNumber = (value: number, digits = 2) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${number(Math.abs(value), digits)}`;
+const pointsNumber = (value: number | null) => value === null ? "—" : number(value, 1);
 
 function OpponentFeature({ label, opponent }: { label: string; opponent: OpponentStat | null }) {
   return <article className={styles.opponentFeature}><span>{label}</span>{opponent ? <>
@@ -28,7 +29,7 @@ function OpponentFeature({ label, opponent }: { label: string; opponent: Opponen
 }
 
 function MissionFeature({ label, mission }: { label: string; mission: MissionStat | null }) {
-  return <article className={styles.missionFeature}><span>{label}</span>{mission ? <><strong>{mission.name}</strong><dl><div><dt>Winrate</dt><dd>{percent(mission.winRate)}</dd></div><div><dt>Ø Platzierung</dt><dd>{number(mission.averagePlacement!, 2)}</dd></div><div><dt>σ Platzierung</dt><dd>{missionDeviation(mission.placementStandardDeviation, 2)}</dd></div><div><dt>Ø Punkte</dt><dd>{number(mission.averagePoints!, 1)}</dd></div><div><dt>σ Punkte</dt><dd>{missionDeviation(mission.pointsStandardDeviation, 1)}</dd></div></dl></> : <p>Noch nicht genügend Daten</p>}</article>;
+  return <article className={styles.missionFeature}><span>{label}</span>{mission ? <><strong>{mission.name}</strong><dl><div><dt>Winrate</dt><dd>{percent(mission.winRate)}</dd></div><div><dt>Ø Platzierung</dt><dd>{number(mission.averagePlacement!, 2)}</dd></div><div><dt>σ Platzierung</dt><dd>{missionDeviation(mission.placementStandardDeviation, 2)}</dd></div><div><dt>Median Punkte</dt><dd>{pointsNumber(mission.medianPoints)}</dd></div><div><dt>Ø Punkte</dt><dd>{number(mission.averagePoints!, 1)}</dd></div><div><dt>σ Punkte</dt><dd>{missionDeviation(mission.pointsStandardDeviation, 1)}</dd></div></dl></> : <p>Noch nicht genügend Daten</p>}</article>;
 }
 
 export default async function PublicPlayerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -83,6 +84,8 @@ export default async function PublicPlayerPage({ params }: { params: Promise<{ i
     { label: "σ Platzierung", value: profile.placementStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(profile.placementStandardDeviation, 2)}` },
     { label: "Ø Punktzahl", value: profile.averagePoints === null ? "—" : number(profile.averagePoints, 1) },
     { label: "σ Punktzahl", value: profile.pointsStandardDeviation === null ? "Keine Daten" : `± ${fixedNumber(profile.pointsStandardDeviation, 1)}` },
+    { label: "Median Punktzahl", value: pointsNumber(profile.medianPoints) },
+    { label: "Mittlere 50 %", value: profile.pointQuartiles ? `${pointsNumber(profile.pointQuartiles.q1)}–${pointsNumber(profile.pointQuartiles.q3)} Punkte` : "—" },
     { label: "Größtes Plus", value: profile.largestGain ? formatEloChange(profile.largestGain.value) : "—", date: profile.largestGain ? formatDate(profile.largestGain.playedAt) : undefined, href: profile.largestGain ? `/partien/${profile.largestGain.gameId}` : undefined, tone: "positive" },
     { label: "Größtes Minus", value: profile.largestLoss ? formatEloChange(profile.largestLoss.value) : "—", date: profile.largestLoss ? formatDate(profile.largestLoss.playedAt) : undefined, href: profile.largestLoss ? `/partien/${profile.largestLoss.gameId}` : undefined, tone: "negative" },
   ];
@@ -98,7 +101,7 @@ export default async function PublicPlayerPage({ params }: { params: Promise<{ i
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Nach Aufgabe</span><h2>Missionsstatistik</h2></div></div>
       <div className={styles.highlights}><MissionFeature label="Beste Mission" mission={missions.best} /><MissionFeature label="Schlechteste Mission" mission={missions.worst} /></div>
-      <div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th className={styles.sigmaHeader}>σ Platz</th><th>Ø Punkte</th><th className={styles.sigmaHeader}>σ Punkte</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><th>{row.name}</th><td>{row.games}</td><td>{row.wins}</td><td>{percent(row.winRate)}</td><td>{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</td><td>{missionDeviation(row.placementStandardDeviation, 2)}</td><td>{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</td><td>{missionDeviation(row.pointsStandardDeviation, 1)}</td><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><td>{row.isWithoutMission ? "—" : percent(row.keptRate)}</td></tr>)}</tbody></table></div>
+      <div className={styles.tableWrap}><table><thead><tr><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th className={styles.sigmaHeader}>σ Platz</th><th>Median Punkte</th><th>Ø Punkte</th><th className={styles.sigmaHeader}>σ Punkte</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><th>{row.name}</th><td>{row.games}</td><td>{row.wins}</td><td>{percent(row.winRate)}</td><td>{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</td><td>{missionDeviation(row.placementStandardDeviation, 2)}</td><td>{pointsNumber(row.medianPoints)}</td><td>{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</td><td>{missionDeviation(row.pointsStandardDeviation, 1)}</td><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><td>{row.isWithoutMission ? "—" : percent(row.keptRate)}</td></tr>)}</tbody></table></div>
     </section>
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Direktvergleich</span><h2>Gegnerstatistik</h2></div></div><div className={styles.opponentHighlights}><OpponentFeature label="Lieblingsgegner" opponent={opponents.favorite} /><OpponentFeature label="Erzfeind" opponent={opponents.nemesis} /></div>

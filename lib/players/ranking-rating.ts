@@ -16,6 +16,10 @@ export function calculateRankingRating(currentRating: number, lastPlayedAt: Date
   return { currentRating, rankingRating: currentRating - inactivityPenalty, inactiveDays, inactivityPenalty };
 }
 
+export function isActiveRankingPlayer(value: Pick<RankingRating, "inactiveDays">) {
+  return value.inactiveDays !== null && value.inactiveDays <= INACTIVITY_GRACE_DAYS;
+}
+
 export type RankingPlayer = RankingRating & {
   id: string;
   alias: string;

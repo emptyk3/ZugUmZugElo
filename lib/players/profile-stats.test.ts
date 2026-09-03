@@ -10,7 +10,7 @@ const row = (id: string, day: number, values: Partial<ProfileParticipation> = {}
 
 test("Karrierekennzahlen verwenden gespeicherte bestätigte Werte", () => {
   const stats = calculateProfileStats(1500, [row("a", 1, { placement: 1, points: 110, ratingChange: 12, ratingAfter: 1512 }), row("b", 2, { placement: 3, points: 90, ratingBefore: 1512, ratingChange: -8, ratingAfter: 1504 })]);
-  assert.deepEqual({ highest: stats.highestRating.value, wins: stats.wins, winRate: stats.winRate, placement: stats.averagePlacement, placementSigma: stats.placementStandardDeviation, points: stats.averagePoints, pointsSigma: stats.pointsStandardDeviation, gain: stats.largestGain?.value, loss: stats.largestLoss?.value }, { highest: 1512, wins: 1, winRate: .5, placement: 2, placementSigma: 1, points: 100, pointsSigma: 10, gain: 12, loss: -8 });
+  assert.deepEqual({ highest: stats.highestRating.value, wins: stats.wins, winRate: stats.winRate, placement: stats.averagePlacement, placementSigma: stats.placementStandardDeviation, points: stats.averagePoints, median: stats.medianPoints, quartiles: stats.pointQuartiles, pointsSigma: stats.pointsStandardDeviation, gain: stats.largestGain?.value, loss: stats.largestLoss?.value }, { highest: 1512, wins: 1, winRate: .5, placement: 2, placementSigma: 1, points: 100, median: 100, quartiles: { q1: 90, q3: 110 }, pointsSigma: 10, gain: 12, loss: -8 });
   assert.equal(stats.lastActivity?.toISOString(), "2026-01-02T12:00:00.000Z");
 });
 
@@ -50,12 +50,12 @@ test("Profilstruktur priorisiert Elo und trennt Karrierewerte von Datumsangaben"
   assert.ok(page.includes("item.date && <small>"));
 });
 
-test("Karriere zeigt zehn Karten in exakter Paarreihenfolge und letzte Aktivität nur im Header", () => {
+test("Karriere zeigt zwölf Karten einschließlich Medianpaar in exakter Paarreihenfolge", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
   const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
   const careerArray = page.slice(page.indexOf("const career = ["), page.indexOf("];", page.indexOf("const career = [")));
   assert.deepEqual([...careerArray.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), [
-    "Aktuelle Elo", "Höchste Elo", "Siege", "Winrate", "Ø Platzierung", "σ Platzierung", "Ø Punktzahl", "σ Punktzahl", "Größtes Plus", "Größtes Minus",
+    "Aktuelle Elo", "Höchste Elo", "Siege", "Winrate", "Ø Platzierung", "σ Platzierung", "Ø Punktzahl", "σ Punktzahl", "Median Punktzahl", "Mittlere 50 %", "Größtes Plus", "Größtes Minus",
   ]);
   assert.doesNotMatch(careerArray, /Höchste Punktzahl|Letzte Aktivität|highestScore/);
   assert.match(page, /className=\{styles\.careerHeader\}.*Letzte Aktivität:/);
@@ -65,6 +65,7 @@ test("Karriere zeigt zehn Karten in exakter Paarreihenfolge und letzte Aktivitä
   assert.match(page, /item\.label === "σ Platzierung" \|\| item\.label === "σ Punktzahl" \? styles\.sigmaLabel/);
   assert.match(css, /\.career dt\.sigmaLabel\{text-transform:none\}/);
   assert.match(css, /\.career dl\{display:grid;grid-template-columns:1fr 1fr/);
+  assert.match(page, /profile\.pointQuartiles \? `\$\{pointsNumber\(profile\.pointQuartiles\.q1\)\}–\$\{pointsNumber\(profile\.pointQuartiles\.q3\)\} Punkte` : "—"/);
   assert.match(css, /@media\(max-width:760px\).*\.career dl\{grid-template-columns:1fr\}/);
 });
 

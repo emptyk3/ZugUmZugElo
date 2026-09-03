@@ -41,6 +41,12 @@
   font-weight: 800;
 }
 
+.playerCounts {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(18px, 3vw, 34px);
+}
+
 .playerCount {
   display: grid;
   justify-items: end;
@@ -225,6 +231,8 @@
   .brand { font-size: 18px; }
   .navLink { padding: 8px 11px; font-size: 12px; }
   .playerCount strong { font-size: 30px; }
+  .playerCounts { gap: 14px; }
+  .playerCount span { font-size: 9px; white-space: nowrap; }
   .tableHeading { padding: 22px 18px 18px; }
   .tableWrap thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .tableWrap table, .tableWrap tbody, .tableWrap tr, .tableWrap td { display: block; width: 100%; box-sizing: border-box; }

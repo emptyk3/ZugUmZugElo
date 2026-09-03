@@ -1,3 +1,5 @@
+import { median } from "../statistics/distribution.ts";
+
 export type MissionDefinition = { id: string; name: string; sortOrder: number };
 export type MissionParticipation = {
   points: number; placement: number; missionKept: boolean; gameId: string; playedAt: Date;
@@ -7,7 +9,7 @@ export type MissionParticipation = {
 export type MissionStat = {
   id: string; name: string; sortOrder: number; games: number; wins: number; winRate: number | null;
   averagePlacement: number | null; placementStandardDeviation: number | null;
-  averagePoints: number | null; pointsStandardDeviation: number | null;
+  medianPoints: number | null; averagePoints: number | null; pointsStandardDeviation: number | null;
   highestScore: { value: number; gameId: string; playedAt: Date } | null;
   kept: number; drawn: number; keptRate: number | null; isWithoutMission: boolean; isTotal: boolean;
 };
@@ -28,6 +30,7 @@ function summarize(id: string, name: string, sortOrder: number, items: MissionPa
     id, name, sortOrder, games: items.length, wins, winRate: items.length ? wins / items.length : null,
     averagePlacement,
     placementStandardDeviation: populationStandardDeviation(placements, averagePlacement),
+    medianPoints: median(points),
     averagePoints,
     pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
     highestScore: highest ? { value: highest.points, gameId: highest.gameId, playedAt: highest.playedAt } : null,

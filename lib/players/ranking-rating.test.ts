@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { calculateRankingRating, compareRankingPlayers } from "./ranking-rating.ts";
+import { calculateRankingRating, compareRankingPlayers, isActiveRankingPlayer } from "./ranking-rating.ts";
 
 const now = new Date("2026-08-19T12:00:00.000Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -18,6 +18,12 @@ test("Inaktivitätsmalus greift exakt ab dem 31. vollen 24-Stunden-Tag", () => {
 test("nur volle 24-Stunden-Zeiträume zählen und Spieler ohne Partie erhalten keinen Malus", () => {
   assert.equal(calculateRankingRating(1500, new Date(daysAgo(31).getTime() + 1), now).inactiveDays, 30);
   assert.deepEqual(calculateRankingRating(1500, null, now), { currentRating: 1500, rankingRating: 1500, inactiveDays: null, inactivityPenalty: 0 });
+});
+
+test("Aktivitätsstatus verwendet dieselbe Grenze wie der Ranglisten-Malus", () => {
+  for (const days of [0, 1, 30]) assert.equal(isActiveRankingPlayer(calculateRankingRating(1500, daysAgo(days), now)), true);
+  assert.equal(isActiveRankingPlayer(calculateRankingRating(1500, daysAgo(31), now)), false);
+  assert.equal(isActiveRankingPlayer(calculateRankingRating(1500, null, now)), false);
 });
 
 test("Rangliste sortiert nach temporärer Ranglisten-Elo, ohne echte Elo zu verändern", () => {
@@ -46,8 +52,19 @@ test("Ranglistenabfrage berücksichtigt nur letzte bestätigte, nicht gelöschte
   assert.match(page, /orderBy: \[\{ game: \{ playedAt: "desc" \} \}/);
   assert.match(page, /take: 1/);
   assert.match(page, /playedAt: true/);
+  assert.doesNotMatch(page, /GameStatus\.(?:PENDING|REJECTED)/);
+  assert.match(page, /calculateRankingRating\(player\.currentRating, player\.participations\[0\]\?\.game\.playedAt \?\? null, now\)/);
   assert.equal((page.match(/prisma\.player\.findMany/g) ?? []).length, 1);
   assert.doesNotMatch(page, /player\.(update|updateMany)|\$transaction/);
+});
+
+test("Header trennt alle Ranglistenspieler von Spielern mit aktueller bestätigter Partie", () => {
+  const page = readFileSync("app/page.tsx", "utf8");
+  const css = readFileSync("app/page.module.css", "utf8");
+  assert.match(page, /activePlayerCount = players\.filter\(isActiveRankingPlayer\)\.length/);
+  assert.match(page, /<strong>\{players\.length\}<\/strong>\s*<span>Spieler gesamt<\/span>/);
+  assert.match(page, /<strong>\{activePlayerCount\}<\/strong>\s*<span>Aktive Spieler<\/span>/);
+  assert.match(css, /\.playerCounts \{[\s\S]*display: flex/);
 });
 
 test("UI erklärt nur angewandten Malus und andere Bereiche verwenden weiterhin currentRating", () => {

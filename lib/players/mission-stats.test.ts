@@ -22,6 +22,7 @@ test("behaltene Mission zählt nur in ihrer Mission und nicht behaltene ausschli
   assert.equal(without.keptRate, null);
   assert.equal(mission.placementStandardDeviation, .5);
   assert.equal(mission.pointsStandardDeviation, .5);
+  assert.equal(mission.medianPoints, 100.5);
   assert.equal(without.placementStandardDeviation, 0);
   assert.equal(without.pointsStandardDeviation, 0);
   assert.equal(total.placementStandardDeviation, Math.sqrt(2 / 3));
@@ -34,6 +35,8 @@ test("σ Platz und σ Punkte sind Populationswerte und leere Kategorien bleiben 
   const empty = stats.rows.find((item) => item.id === "m2")!;
   assert.ok(Math.abs(mission.placementStandardDeviation! - Math.sqrt(2 / 3)) < 1e-12);
   assert.ok(Math.abs(mission.pointsStandardDeviation! - Math.sqrt(2 / 3)) < 1e-12);
+  assert.equal(mission.medianPoints, 91);
+  assert.equal(empty.medianPoints, null);
   assert.equal(empty.placementStandardDeviation, null);
   assert.equal(empty.pointsStandardDeviation, null);
   assert.doesNotMatch(JSON.stringify(stats), /NaN|Infinity/);
@@ -69,7 +72,7 @@ test("Standardabweichungen verändern die Auswahl der Highlights nicht", () => {
 test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Streuungswerte mit ±", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
   const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ Platz<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
+  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ Platz<\/th><th>Median Punkte<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
   assert.match(css, /\.tableWrap thead th\.sigmaHeader\{text-transform:none\}/);
   assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
   assert.match(page, /const missionDeviation = \(value: number \| null, digits: number\) => value === null \? "—" : `± \$\{fixedNumber\(value, digits\)\}`/);
@@ -80,5 +83,6 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.doesNotMatch(page, /row\.(?:placement|points)StandardDeviation === null \? "Keine Daten"/);
   assert.match(page, /MissionFeature label="Beste Mission"/);
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
+  assert.match(page, /<dt>Median Punkte<\/dt><dd>\{pointsNumber\(mission\.medianPoints\)\}<\/dd>/);
   assert.match(page, /row\.highestScore \? <Link/);
 });

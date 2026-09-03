@@ -4,7 +4,7 @@ import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { formatElo } from "@/lib/format/elo";
-import { calculateRankingRating, compareRankingPlayers } from "@/lib/players/ranking-rating";
+import { calculateRankingRating, compareRankingPlayers, isActiveRankingPlayer } from "@/lib/players/ranking-rating";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +47,7 @@ export default async function Home() {
   type LoadedPlayer = Awaited<ReturnType<typeof loadLeaderboard>>[number];
   type DisplayPlayer = LoadedPlayer & ReturnType<typeof calculateRankingRating> & { confirmedGames: number };
   let players: DisplayPlayer[] = [];
+  let activePlayerCount = 0;
   let loadError = false;
 
   try {
@@ -57,6 +58,7 @@ export default async function Home() {
       ...calculateRankingRating(player.currentRating, player.participations[0]?.game.playedAt ?? null, now),
       confirmedGames: player._count.participations,
     })).sort(compareRankingPlayers);
+    activePlayerCount = players.filter(isActiveRankingPlayer).length;
   } catch (error) {
     console.error("Rangliste konnte nicht geladen werden:", error);
     loadError = true;
@@ -75,9 +77,15 @@ export default async function Home() {
             <span>Stand jetzt</span>
             <h2 id="leaderboard-title">Rangliste</h2>
           </div>
-          <div className={styles.playerCount} aria-label={`${players.length} aktive Spieler`}>
-            <strong>{players.length}</strong>
-            <span>aktive Spieler</span>
+          <div className={styles.playerCounts} aria-label={`${players.length} Spieler gesamt, ${activePlayerCount} aktive Spieler`}>
+            <div className={styles.playerCount}>
+              <strong>{players.length}</strong>
+              <span>Spieler gesamt</span>
+            </div>
+            <div className={styles.playerCount}>
+              <strong>{activePlayerCount}</strong>
+              <span>Aktive Spieler</span>
+            </div>
           </div>
         </div>
 
