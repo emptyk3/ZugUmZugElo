@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildMissionPlacementBranches, buildMissionPlacementTimeline, buildMissionPlacementTooltipRows } from "./mission-placement-timeline.ts";
+import { buildMissionPlacementBranches, buildMissionPlacementTimeline, buildMissionPlacementTooltipRows, buildSmoothedCumulativePlacementSeries } from "./mission-placement-timeline.ts";
 import { hideAllMissionLines, missionLineKey, onlyMissionAverages, toggleMissionLine } from "./mission-placement-timeline-visibility.ts";
 import type { MissionCatalogItem, StatisticsGame } from "./types.ts";
 
@@ -29,40 +29,31 @@ test("Platzierungszeitreihe verwendet gespeicherte Platzierungen und die Mission
   assert.deepEqual(timeline.entries[1].missionValues["without-mission"].placements.map((result) => result.playerAlias), ["Anna", "Berta"]);
 });
 
-test("eine einzelne Platzierung bleibt der einzige dargestellte Durchschnittswert", () => {
-  const timeline = buildMissionPlacementTimeline([
-    game("single", "2026-01-01T12:00:00Z", [{ id: "p1", missionId: "m1", kept: true, placement: 4 }]),
-  ], catalog);
-  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, 4);
+test("Anfangsglättung verwendet bei einem bis fünf Werten die gesamte vorhandene Startbasis", () => {
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([]), []);
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([4]), [4]);
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([1, 4]), [2, 2.5]);
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([1, 4, 2]), [2, 2.4, 7 / 3]);
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([1, 4, 2, 3]), [2.2, 2.5, 17 / 7, 2.5]);
+  assert.deepEqual(buildSmoothedCumulativePlacementSeries([1, 4, 2, 3, 2]), [13 / 6, 17 / 7, 19 / 8, 22 / 9, 12 / 5]);
 });
 
-test("zwei Platzierungen zeigen durchgehend deren gemeinsamen Durchschnitt", () => {
+test("ab dem sechsten Wert entspricht die Glättung wieder dem normalen kumulativen Durchschnitt", () => {
+  const values = buildSmoothedCumulativePlacementSeries([1, 4, 2, 3, 2, 5, 1]);
+  assert.equal(values[4], 12 / 5);
+  assert.equal(values[5], 17 / 6);
+  assert.equal(values[6], 18 / 7);
+  assert.ok(values.every(Number.isFinite));
+});
+
+test("Zeitreihe verwendet die geglätteten Werte pro Mission unabhängig", () => {
   const timeline = buildMissionPlacementTimeline(games, catalog);
   assert.equal(timeline.entries[2].missionValues.m1.cumulativeAveragePlacement, 2.5);
-  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, 2.5);
+  assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, 3);
   assert.equal(timeline.entries[1].missionValues.m2.cumulativeAveragePlacement, 2);
   assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 11 / 3);
-  assert.equal(timeline.entries[0].missionValues["without-mission"].cumulativeAveragePlacement, 11 / 3);
+  assert.equal(timeline.entries[0].missionValues["without-mission"].cumulativeAveragePlacement, 3.5);
   assert.ok(timeline.entries.flatMap((entry) => Object.values(entry.missionValues)).every((value) => value.cumulativeAveragePlacement === null || Number.isFinite(value.cumulativeAveragePlacement)));
-});
-
-test("genau drei Platzierungen verwenden für alle Durchschnittspunkte das Mittel der ersten drei", () => {
-  const threeGames = [1, 5, 3].map((placement, index) => game(`three-${index}`, `2026-02-0${index + 1}T12:00:00Z`, [
-    { id: `p${index}`, missionId: "m1", kept: true, placement },
-  ]));
-  const values = buildMissionPlacementTimeline(threeGames, catalog).entries.map((entry) => entry.missionValues.m1.cumulativeAveragePlacement);
-  assert.deepEqual(values, [3, 3, 3]);
-});
-
-test("ab der vierten Platzierung geht die Linie in den unveränderten kumulativen Durchschnitt über", () => {
-  const placements = [5, 4, 3, 2, 1];
-  const manyGames = placements.map((placement, index) => game(`many-${index}`, `2026-03-0${index + 1}T12:00:00Z`, [
-    { id: `p${index}`, missionId: "m1", kept: true, placement },
-  ]));
-  const values = buildMissionPlacementTimeline(manyGames, catalog).entries.map((entry) => entry.missionValues.m1.cumulativeAveragePlacement);
-  assert.deepEqual(values.slice(0, 3), [4, 4, 4]);
-  assert.equal(values[3], 14 / 4);
-  assert.equal(values[4], 15 / 5);
 });
 
 test("eine erst später beginnende Mission glättet ab ihrem eigenen ersten Vorkommen", () => {
@@ -74,7 +65,7 @@ test("eine erst später beginnende Mission glättet ab ihrem eigenen ersten Vork
   ];
   const timeline = buildMissionPlacementTimeline(delayedGames, catalog);
   assert.equal(timeline.entries[0].missionValues.m1.cumulativeAveragePlacement, null);
-  assert.deepEqual(timeline.entries.slice(1).map((entry) => entry.missionValues.m1.cumulativeAveragePlacement), [3, 3, 3]);
+  assert.deepEqual(timeline.entries.slice(1).map((entry) => entry.missionValues.m1.cumulativeAveragePlacement), [3.25, 3, 3]);
 });
 
 test("fehlende Missionen bleiben null und beginnen erst mit der ersten relevanten Partie", () => {
@@ -106,7 +97,7 @@ test("Ohne Mission verzweigt bei mehreren Ist-Werten und läuft am nächsten Ein
   assert.equal(branches.length, 2);
   assert.deepEqual(branches.map((branch) => branch.map((point) => point.placement)), [[3, 2, 4], [3, 5, 4]]);
   assert.equal(branches[0][1].visualPosition, branches[1][1].visualPosition);
-  assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 10 / 3);
+  assert.equal(timeline.entries[1].missionValues["without-mission"].cumulativeAveragePlacement, 24 / 7);
   assert.equal(timeline.entries[2].missionValues["without-mission"].cumulativeAveragePlacement, 3.5);
   assert.equal(timeline.entries[1].missionValues["without-mission"].placements.length, 2);
 });
@@ -126,6 +117,7 @@ test("Tooltip sortiert Teilnehmer nach Platzierung statt Serienreihenfolge und b
   assert.equal(rows.filter((row) => row.missionId === "without-mission").length, 2);
   assert.equal(rows[1].cumulativeAveragePlacement, 2);
   assert.equal(rows[2].cumulativeAveragePlacement, 2);
+  assert.equal(rows[1].cumulativeAveragePlacement, timeline.entries[0].missionValues["without-mission"].cumulativeAveragePlacement);
 });
 
 test("Y-Achsenmaximum erweitert sich bei gespeicherten Platzierungen außerhalb 1 bis 5", () => {

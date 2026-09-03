@@ -61,10 +61,24 @@ const categoryFor = (participant: StatisticsParticipation, missionIds: ReadonlyS
   ? missionIds.has(participant.missionId) ? participant.missionId : null
   : "without-mission";
 
+export function buildSmoothedCumulativePlacementSeries(values: number[]): number[] {
+  if (!values.length) return [];
+  const basisSize = Math.min(values.length, 5);
+  const basisSum = values.slice(0, basisSize).reduce((sum, value) => sum + value, 0);
+  let cumulativeSum = 0;
+  return values.map((value, index) => {
+    cumulativeSum += value;
+    const count = index + 1;
+    return count < basisSize
+      ? (basisSum + cumulativeSum) / (basisSize + count)
+      : cumulativeSum / count;
+  });
+}
+
 export function buildMissionPlacementTimeline(games: StatisticsGame[], catalog: MissionCatalogItem[]): MissionPlacementTimeline {
   const series = [...catalog.map(({ id, name }) => ({ id, name })), { id: "without-mission", name: "Ohne Mission" }];
   const missionIds = new Set(catalog.map((mission) => mission.id));
-  const counters = new Map(series.map((mission) => [mission.id, { count: 0, sumPlacement: 0 }]));
+  const counters = new Map(series.map((mission) => [mission.id, 0]));
   const relevantGames = [...games].sort(compareGames).map((game) => ({
     game,
     participants: [...game.participants].sort((left, right) => left.id.localeCompare(right.id)).flatMap((participant) => {
@@ -72,14 +86,11 @@ export function buildMissionPlacementTimeline(games: StatisticsGame[], catalog: 
       return missionId === null ? [] : [{ participant, missionId }];
     }),
   })).filter(({ participants }) => participants.length > 0);
-  const initialAverageByMission = new Map(series.map((mission) => {
+  const smoothedAveragesByMission = new Map(series.map((mission) => {
     const placements = relevantGames.flatMap(({ participants }) => participants
       .filter((entry) => entry.missionId === mission.id)
       .map((entry) => entry.participant.placement));
-    const initialPlacements = placements.slice(0, 3);
-    return [mission.id, initialPlacements.length
-      ? initialPlacements.reduce((sum, placement) => sum + placement, 0) / initialPlacements.length
-      : null] as const;
+    return [mission.id, buildSmoothedCumulativePlacementSeries(placements)] as const;
   }));
 
   let visualPosition = 0;
@@ -90,15 +101,12 @@ export function buildMissionPlacementTimeline(games: StatisticsGame[], catalog: 
     for (const mission of series) {
       const relevant = participants.filter((entry) => entry.missionId === mission.id).map((entry) => entry.participant);
       if (!relevant.length) continue;
-      const counter = counters.get(mission.id)!;
-      counter.count += relevant.length;
-      counter.sumPlacement += relevant.reduce((sum, participant) => sum + participant.placement, 0);
+      const count = counters.get(mission.id)! + relevant.length;
+      counters.set(mission.id, count);
       maximumPlacement = Math.max(maximumPlacement, ...relevant.map((participant) => participant.placement));
       missionValues[mission.id] = {
         placements: relevant.map((participant) => ({ participantId: participant.playerId, playerAlias: participant.alias, placement: participant.placement })),
-        cumulativeAveragePlacement: counter.count <= 3
-          ? initialAverageByMission.get(mission.id)!
-          : counter.sumPlacement / counter.count,
+        cumulativeAveragePlacement: smoothedAveragesByMission.get(mission.id)![count - 1],
       };
     }
     return { gameId: game.id, playedAt: game.playedAt, visualPosition, missionValues };
