@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildGamePointsTimeline, calculateGameStatistics } from "./game-statistics.ts";
 import type { StatisticsGame } from "./types.ts";
@@ -11,16 +12,37 @@ test("Spielstatistiken teilen Vierer- und Fünferpartien auf und mitteln Teilneh
   assert.equal(result.total.averagePoints, 620 / 9); // kein Mittel der beiden Partiemittel
   assert.equal(result.total.medianPoints, 70); assert.equal(result.fourPlayers.medianPoints, 85); assert.equal(result.fivePlayers.medianPoints, 20);
   assert.equal(result.total.averageWinnerPoints, 150);
+  assert.equal(result.total.medianWinnerPoints, 150);
+  assert.equal(result.fourPlayers.medianWinnerPoints, 100);
+  assert.equal(result.fivePlayers.medianWinnerPoints, 200);
 });
 
 test("gespeicherter Erstplatzierter zählt auch beim Punktegleichstand", () => {
   const result = calculateGameStatistics([game("1", [100, 100, 80, 70], [2, 1, 3, 4])]);
   assert.equal(result.total.averageWinnerPoints, 100);
+  assert.equal(result.total.medianWinnerPoints, 100);
+});
+
+test("Median der Siegerpunkte verwendet für gerade und ungerade Mengen die zentrale Medianregel", () => {
+  const odd = calculateGameStatistics([
+    game("1", [110, 90, 80, 70]),
+    game("2", [150, 100, 90, 80]),
+    game("3", [130, 100, 90, 80]),
+  ]);
+  assert.equal(odd.total.medianWinnerPoints, 130);
+  assert.equal(odd.fourPlayers.medianWinnerPoints, 130);
+
+  const even = calculateGameStatistics([
+    game("1", [110, 90, 80, 70, 60]),
+    game("2", [150, 100, 90, 80, 70]),
+  ]);
+  assert.equal(even.total.medianWinnerPoints, 130);
+  assert.equal(even.fivePlayers.medianWinnerPoints, 130);
 });
 
 test("leere und unerwartete Kategorien bleiben definiert", () => {
   const empty = calculateGameStatistics([]);
-  assert.deepEqual(empty.fourPlayers, { games: 0, averagePoints: null, medianPoints: null, averageWinnerPoints: null });
+  assert.deepEqual(empty.fourPlayers, { games: 0, averagePoints: null, medianPoints: null, averageWinnerPoints: null, medianWinnerPoints: null });
   assert.equal(calculateGameStatistics([game("1", [10, 9, 8])]).unexpectedPlayerCountGames, 1);
 });
 
@@ -81,4 +103,10 @@ test("eine einzelne Partie und leere Kategorien erzeugen gültige Zeitreihen", (
   assert.equal(result.timelines.total[0].cumulativeWinnerAverage, 100);
   assert.deepEqual(result.timelines.fivePlayers, []);
   assert.deepEqual(calculateGameStatistics([]).timelines, { total: [], fourPlayers: [], fivePlayers: [] });
+});
+
+test("Spielstatistik rendert den Sieger-Median direkt nach dem Sieger-Durchschnitt", () => {
+  const page = readFileSync(new URL("../../app/statistik/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /Durchschnittliche Punkte des Siegers<\/th>.*averageWinnerPoints.*Median Punkte des Siegers<\/th>.*medianWinnerPoints/s);
+  assert.match(page, /c\.medianWinnerPoints === null \? "—" : number\(c\.medianWinnerPoints, 1\)/);
 });

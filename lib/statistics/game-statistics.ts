@@ -6,6 +6,7 @@ export type GameStatisticColumn = {
   averagePoints: number | null;
   medianPoints: number | null;
   averageWinnerPoints: number | null;
+  medianWinnerPoints: number | null;
 };
 
 export type GamePointsTimelineEntry = {
@@ -50,6 +51,7 @@ function summarize(games: StatisticsGame[]): GameStatisticColumn {
     averagePoints: results.length ? results.reduce((sum, row) => sum + row.points, 0) / results.length : null,
     medianPoints: median(results.map((row) => row.points)),
     averageWinnerPoints: winners.length ? winners.reduce((sum, row) => sum + row.points, 0) / winners.length : null,
+    medianWinnerPoints: median(winners.map((row) => row.points)),
   };
 }
 

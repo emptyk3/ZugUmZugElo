@@ -47,7 +47,7 @@ test("Profilstruktur priorisiert Elo und trennt Karrierewerte von Datumsangaben"
   assert.ok(page.includes("bestätigte Partien"));
   assert.ok(css.includes(".primaryElo strong"));
   assert.ok(css.includes("font-size:clamp(38px"));
-  assert.ok(page.includes("item.date && <small>"));
+  assert.match(page, /<dd[^>]*><span>.*<\/span>\{item\.date && <small>\{item\.date\}<\/small>\}<\/dd>/);
 });
 
 test("Karriere zeigt zwölf Karten einschließlich Medianpaar in exakter Paarreihenfolge", () => {
@@ -65,7 +65,11 @@ test("Karriere zeigt zwölf Karten einschließlich Medianpaar in exakter Paarrei
   assert.match(page, /item\.label === "σ Platzierung" \|\| item\.label === "σ Punktzahl" \? styles\.sigmaLabel/);
   assert.match(css, /\.career dt\.sigmaLabel\{text-transform:none\}/);
   assert.match(css, /\.career dl\{display:grid;grid-template-columns:1fr 1fr/);
-  assert.match(page, /profile\.pointQuartiles \? `\$\{pointsNumber\(profile\.pointQuartiles\.q1\)\}–\$\{pointsNumber\(profile\.pointQuartiles\.q3\)\} Punkte` : "—"/);
+  assert.match(page, /profile\.pointQuartiles \? `\$\{pointsNumber\(profile\.pointQuartiles\.q1\)\}–\$\{pointsNumber\(profile\.pointQuartiles\.q3\)\}` : "—"/);
+  assert.doesNotMatch(careerArray, /pointQuartiles[^\n]*Punkte/);
+  assert.match(css, /grid-template-columns:minmax\(190px,\.8fr\) minmax\(460px,2fr\) minmax\(320px,1\.05fr\)/);
+  assert.match(css, /\.career dd\{display:flex;align-items:baseline;flex-wrap:wrap/);
+  assert.match(css, /\.career dd>small\{[^}]*font-size:9px[^}]*white-space:nowrap/);
   assert.match(css, /@media\(max-width:760px\).*\.career dl\{grid-template-columns:1fr\}/);
 });
 
