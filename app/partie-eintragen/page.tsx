@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState, useTransition } from "react";
-import { createPlayer, getGameFormOptions, saveGame } from "./actions";
+import { createPlayer, getGameFormOptions, saveGame, searchPlayers } from "./actions";
 import styles from "./page.module.css";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
@@ -101,7 +101,6 @@ export default function AddGamePage() {
     getGameFormOptions()
       .then((options) => {
         if (!active) return;
-        setPlayers(options.players);
         setMissions(options.missions);
       })
       .catch(() => {
@@ -114,6 +113,21 @@ export default function AddGamePage() {
       active = false;
     };
   }, []);
+
+  const focusedPlayerQuery = participants.find(({ id }) => id === focusedPlayerId)?.playerQuery ?? "";
+  useEffect(() => {
+    if (focusedPlayerId === null) return;
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      searchPlayers(focusedPlayerQuery)
+        .then((matches) => { if (active) setPlayers(matches); })
+        .catch(() => { if (active) setPlayers([]); });
+    }, 150);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [focusedPlayerId, focusedPlayerQuery]);
 
   useEffect(() => {
     return () => {
@@ -176,18 +190,14 @@ export default function AddGamePage() {
     setSaveError("");
   }
 
-  function availablePlayers(participantId: number, query: string) {
+  function availablePlayers(participantId: number) {
     const selectedElsewhere = new Set(
       participants
         .filter((participant) => participant.id !== participantId)
         .map(({ playerId }) => playerId)
         .filter(Boolean),
     );
-    return players.filter(
-      (player) =>
-        !selectedElsewhere.has(player.id) &&
-        player.alias.toLocaleLowerCase("de").includes(query.trim().toLocaleLowerCase("de")),
-    );
+    return players.filter((player) => !selectedElsewhere.has(player.id));
   }
 
   function openNewPlayerDialog(targetId?: number) {
@@ -449,7 +459,7 @@ export default function AddGamePage() {
 
               <div className={styles.participantGrid}>
                 {participants.map((participant, index) => {
-                  const suggestions = availablePlayers(participant.id, participant.playerQuery);
+                  const suggestions = availablePlayers(participant.id);
                   const showSuggestions = focusedPlayerId === participant.id && !participant.player;
                   return (
                     <article className={styles.participantCard} key={participant.id}>

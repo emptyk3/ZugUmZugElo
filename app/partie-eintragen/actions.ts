@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { gameSubmissionPolicy } from "@/lib/auth/policy";
 import { withStoredImageLifecycle,type StoredImage } from "@/lib/storage/images";
 import { GAME_PHOTO_REQUIRED_MESSAGE, validateGameParticipants } from "@/lib/games/validation";
+import { comparePlayerSearchMatches, normalizePlayerSearch } from "@/lib/players/public-player-search";
 
 type SaveParticipantInput = {
   playerId: string;
@@ -25,24 +26,46 @@ type SaveGameInput = {
 
 export async function getGameFormOptions() {
   await requireUser("/partie-eintragen");
-  const [players, missions] = await Promise.all([
-    prisma.player.findMany({
-      where: {
-        isActive: true,
-        deletedAt: null,
-        mergedIntoPlayerId: null,
-      },
-      orderBy: { alias: "asc" },
-      select: { id: true, alias: true, user: { select: { profileImageUrl: true } } },
-    }),
-    prisma.mission.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const missions = await prisma.mission.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, name: true },
+  });
 
-  return { players, missions };
+  return { missions };
+}
+
+export async function searchPlayers(value: string) {
+  await requireUser("/partie-eintragen");
+  const query = normalizePlayerSearch(value);
+  const nameParts = query.split(" ").filter(Boolean);
+  const firstNameQuery = nameParts[0] ?? "";
+  const lastNameQuery = nameParts.slice(1).join(" ");
+  const players = await prisma.player.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      mergedIntoPlayerId: null,
+      OR: query ? [
+        { alias: { contains: query, mode: "insensitive" } },
+        { user: { is: { firstName: { contains: query, mode: "insensitive" } } } },
+        { user: { is: { lastName: { contains: query, mode: "insensitive" } } } },
+        ...(lastNameQuery ? [{ user: { is: { AND: [
+          { firstName: { contains: firstNameQuery, mode: "insensitive" as const } },
+          { lastName: { contains: lastNameQuery, mode: "insensitive" as const } },
+        ] } } }] : []),
+      ] : undefined,
+    },
+    orderBy: [{ alias: "asc" }, { id: "asc" }],
+    take: 50,
+    select: { id: true, alias: true, user: { select: { firstName: true, lastName: true, profileImageUrl: true } } },
+  });
+
+  return players
+    .map((player) => ({ ...player, firstName: player.user?.firstName ?? null, lastName: player.user?.lastName ?? null }))
+    .sort(comparePlayerSearchMatches(query))
+    .slice(0, 20)
+    .map(({ id, alias, user }) => ({ id, alias, user: user ? { profileImageUrl: user.profileImageUrl } : null }));
 }
 
 export async function createPlayer(input: { alias: string }) {
