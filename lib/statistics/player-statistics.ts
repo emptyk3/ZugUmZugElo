@@ -1,4 +1,5 @@
 import { compareGames, equalNumber, type StatisticsGame, type StatisticsPlayer } from "./types.ts";
+import { median } from "./distribution.ts";
 
 type PlayerRef = Pick<StatisticsPlayer, "id" | "alias" | "imageUrl">;
 type OwnGame = { game: StatisticsGame; row: StatisticsGame["participants"][number] };
@@ -83,10 +84,17 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
 
   const summaries = [...byPlayer.values()].map((rows) => {
     const wins = rows.filter((item) => item.row.placement === 1).length;
-    return { ...playerRef(rows[0]), games: rows.length, wins, winRate: wins / rows.length, averagePoints: rows.reduce((sum, item) => sum + item.row.points, 0) / rows.length };
+    return {
+      ...playerRef(rows[0]), games: rows.length, wins, winRate: wins / rows.length,
+      averagePoints: rows.reduce((sum, item) => sum + item.row.points, 0) / rows.length,
+      medianPoints: median(rows.map((item) => item.row.points))!,
+      averagePlacement: rows.reduce((sum, item) => sum + item.row.placement, 0) / rows.length,
+    };
   });
   const highestWinRate = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.winRate - a.winRate || b.games - a.games || b.wins - a.wins);
   const highestAveragePoints = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.averagePoints - a.averagePoints || b.games - a.games);
+  const highestMedianPoints = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.medianPoints - a.medianPoints || b.averagePoints - a.averagePoints || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
+  const bestAveragePlacement = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => a.averagePlacement - b.averagePlacement || b.winRate - a.winRate || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
 
   const winningSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.placement === 1));
   const nonLossSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.ratingChange >= 0));
@@ -96,5 +104,5 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
   const bestFiveGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 5)), (a, b) => b.value - a.value);
   const bestTenGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 10)), (a, b) => b.value - a.value);
 
-  return { currentTop, highestAllTime: allTime, highestWinRate, highestAveragePoints, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
+  return { currentTop, highestAllTime: allTime, highestWinRate, highestAveragePoints, highestMedianPoints, bestAveragePlacement, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
 }
