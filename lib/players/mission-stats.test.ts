@@ -8,8 +8,10 @@ const rows = (missionId: string, placements: number[], kept = true, points = 100
   points: points + index, placement, missionKept: kept, gameId: `${missionId}-${kept}-${index}`, playedAt: new Date(2026, 0, index + 1), mission: catalog.find((mission) => mission.id === missionId)!,
 }));
 
-test("Tabelle enthält Gesamt, sechs Missionen und Ohne Mission", () => {
-  assert.deepEqual(calculateMissionStats([], catalog).rows.map((row) => row.name), ["Gesamt", ...catalog.map((mission) => mission.name), "Ohne Mission"]);
+test("Tabelle enthält Gesamt ohne Rang sowie sechs Missionen und Ohne Mission", () => {
+  const result = calculateMissionStats([], catalog);
+  assert.deepEqual(result.rows.map((row) => row.name), ["Gesamt", ...catalog.map((mission) => mission.name), "Ohne Mission"]);
+  assert.equal(result.rows[0].missionRank, null);
 });
 
 test("behaltene Mission zählt nur in ihrer Mission und nicht behaltene ausschließlich in Ohne Mission", () => {
@@ -55,9 +57,41 @@ test("Ohne Mission kann beste oder schlechteste Kategorie sein", () => {
   assert.equal(worstWithout.worst?.id, "without-mission");
 });
 
-test("Mission-Tiebreak nutzt Winrate, Platzierung, Punkte und stabilen Namen", () => {
+test("Mission-Tiebreak nutzt nach Platzierung Winrate, Punkte und stabilen Namen", () => {
   const stats = calculateMissionStats([...rows("m1", [1, 2, 3], true, 90), ...rows("m2", [1, 2, 3], true, 100)], catalog);
   assert.equal(stats.best?.id, "m2"); assert.equal(stats.worst?.id, "m1");
+});
+
+test("Missionen einschließlich Ohne Mission werden nach Leistung sortiert und fortlaufend gerankt", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [2, 2, 2], true, 100),
+    ...rows("m2", [1, 2, 3], true, 100),
+    ...rows("m3", [1, 2, 3], true, 110),
+    ...rows("m4", [1, 1, 1], false, 90),
+  ], catalog);
+  assert.deepEqual(stats.rows.slice(0, 5).map((row) => [row.id, row.missionRank]), [
+    ["total", null], ["without-mission", 1], ["m3", 2], ["m2", 3], ["m1", 4],
+  ]);
+});
+
+test("vollständige Leistungsgleichstände teilen sich den Rang wie in der globalen Statistik", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [1, 2, 3], true, 100),
+    ...rows("m2", [1, 2, 3], true, 100),
+    ...rows("m3", [2, 3, 4], true, 100),
+  ], catalog);
+  const ranked = stats.rows.filter((row) => ["m1", "m2", "m3"].includes(row.id));
+  assert.deepEqual(ranked.map((row) => [row.id, row.missionRank]), [["m1", 1], ["m2", 1], ["m3", 3]]);
+});
+
+test("Beste und schlechteste Mission werden primär über Ø Platzierung statt Winrate gewählt", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [1, 2, 2], true, 100),
+    ...rows("m2", [1, 1, 5], true, 120),
+  ], catalog);
+  assert.equal(stats.best?.id, "m1");
+  assert.equal(stats.worst?.id, "m2");
+  assert.ok(stats.best!.winRate! < stats.worst!.winRate!);
 });
 
 test("Standardabweichungen verändern die Auswahl der Highlights nicht", () => {
@@ -72,7 +106,7 @@ test("Standardabweichungen verändern die Auswahl der Highlights nicht", () => {
 test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Streuungswerte mit ±", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
   const css = readFileSync("app/spieler/[id]/page.module.css", "utf8");
-  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ Platz<\/th><th>Median Punkte<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ Punkte<\/th><th>Max\. Punkte<\/th>/);
+  assert.match(page, /<th>Ø Platz<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Median Punkte<\/th><th>Ø Punkte<\/th><th className=\{styles\.sigmaHeader\}>σ<\/th><th>Max\. Punkte<\/th>/);
   assert.match(css, /\.tableWrap thead th\.sigmaHeader\{text-transform:none\}/);
   assert.doesNotMatch(page, /Σ Platz|Σ Punkte/);
   assert.match(page, /const missionDeviation = \(value: number \| null, digits: number\) => value === null \? "—" : `± \$\{fixedNumber\(value, digits\)\}`/);
@@ -85,4 +119,8 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
   assert.match(page, /<dt>Median Punkte<\/dt><dd>\{pointsNumber\(mission\.medianPoints\)\}<\/dd>/);
   assert.match(page, /row\.highestScore \? <Link/);
+  assert.match(page, /<th className=\{styles\.missionRankHeader\}>Rang<\/th><th>Mission<\/th>/);
+  assert.match(page, /missionRankLabel\(row\.missionRank\)/);
+  assert.match(page, /const missionRankMarks = \{ 1: "🏆", 2: "🥈", 3: "🥉" \}/);
+  assert.match(css, /\.missionRankColumn\{width:42px\}/);
 });
