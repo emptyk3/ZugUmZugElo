@@ -84,12 +84,13 @@ test("Elo-Diagramm und Profil verwenden den zentralen Ganzzahl-Formatter", () =>
   assert.ok(chart.includes("formatEloChange(point.ratingChange)"));
 });
 
-test("Missionsbereich enthält nur fachlich begründete Highlights und Ohne Mission zeigt Gedankenstrich", () => {
+test("Missionsbereich enthält nur fachlich begründete Highlights und zeigt den Ohne-Mission-Anteil", () => {
   const page = readFileSync("app/spieler/[id]/page.tsx", "utf8");
   assert.equal(page.includes("Lieblingsmission"), false);
   assert.ok(page.includes('label="Beste Mission"'));
   assert.ok(page.includes('label="Schlechteste Mission"'));
-  assert.ok(page.includes('row.isWithoutMission ? "—" : percent(row.keptRate)'));
+  assert.ok(page.includes('<td>{percent(row.keptRate)}</td>'));
+  assert.equal(page.includes("missions.rankings.keptRate"), false);
 });
 
 test("Partieverlauf lädt alle Teilnehmerdaten, sortiert sie und hebt den Profilspieler hervor", () => {

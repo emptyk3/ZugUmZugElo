@@ -16,11 +16,11 @@ export type MissionStat = {
   missionRank: number | null;
 };
 
-export type MissionHighlightMetric = "wins" | "winRate" | "averagePlacement" | "medianPoints" | "averagePoints" | "keptRate";
+export type MissionHighlightMetric = "wins" | "winRate" | "averagePlacement" | "medianPoints" | "averagePoints" | "highestScore";
 export type MissionHighlightRank = 1 | 2 | 3;
 export type MissionHighlightRankings = Record<MissionHighlightMetric, Record<string, MissionHighlightRank>>;
 
-const highlightMetrics: MissionHighlightMetric[] = ["wins", "winRate", "averagePlacement", "medianPoints", "averagePoints", "keptRate"];
+const highlightMetrics: MissionHighlightMetric[] = ["wins", "winRate", "averagePlacement", "medianPoints", "averagePoints", "highestScore"];
 
 const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
   ? null
@@ -43,7 +43,7 @@ function summarize(id: string, name: string, sortOrder: number, items: MissionPa
     pointsStandardDeviation: populationStandardDeviation(points, averagePoints),
     highestScore: highest ? { value: highest.points, gameId: highest.gameId, playedAt: highest.playedAt } : null,
     kept: flags.isTotal ? items.filter((row) => row.missionKept).length : items.length,
-    drawn, keptRate: flags.isWithoutMission || drawn === 0 ? null : (flags.isTotal ? items.filter((row) => row.missionKept).length : items.length) / drawn,
+    drawn, keptRate: drawn === 0 ? null : (flags.isTotal ? items.filter((row) => row.missionKept).length : items.length) / drawn,
     isWithoutMission: Boolean(flags.isWithoutMission), isTotal: Boolean(flags.isTotal), missionRank: null,
   };
 }
@@ -61,7 +61,7 @@ const samePerformance = (a: MissionStat, b: MissionStat) =>
 function createHighlightRankings(rows: MissionStat[]): MissionHighlightRankings {
   return Object.fromEntries(highlightMetrics.map((metric) => {
     const candidates = rows.flatMap((row) => {
-      const value = row[metric];
+      const value = metric === "highestScore" ? row.highestScore?.value : row[metric];
       return typeof value === "number" && Number.isFinite(value) ? [{ id: row.id, value }] : [];
     });
     candidates.sort((left, right) => (metric === "averagePlacement" ? left.value - right.value : right.value - left.value) || left.id.localeCompare(right.id));
@@ -85,7 +85,7 @@ export function calculateMissionStats(rows: MissionParticipation[], catalog: Mis
     const kept = rows.filter((row) => row.mission.id === mission.id && row.missionKept);
     return summarize(mission.id, mission.name, mission.sortOrder, kept, drawn);
   });
-  const withoutMission = summarize("without-mission", "Ohne Mission", Number.MAX_SAFE_INTEGER, rows.filter((row) => !row.missionKept), 0, { isWithoutMission: true });
+  const withoutMission = summarize("without-mission", "Ohne Mission", Number.MAX_SAFE_INTEGER, rows.filter((row) => !row.missionKept), rows.length, { isWithoutMission: true });
   const total = summarize("total", "Gesamt", -1, rows, rows.length, { isTotal: true });
   const categories = [...missionRows, withoutMission];
   const qualified = categories.filter((row) => row.games >= 3).sort(bestOrder);

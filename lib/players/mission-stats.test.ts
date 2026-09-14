@@ -21,7 +21,7 @@ test("behaltene Mission zählt nur in ihrer Mission und nicht behaltene ausschli
   const total = stats.rows.find((row) => row.isTotal)!;
   assert.deepEqual({ missionGames: mission.games, withoutGames: without.games, totalGames: total.games }, { missionGames: 2, withoutGames: 1, totalGames: 3 });
   assert.equal(mission.keptRate, 2 / 3);
-  assert.equal(without.keptRate, null);
+  assert.equal(without.keptRate, 1 / 3);
   assert.equal(mission.placementStandardDeviation, .5);
   assert.equal(mission.pointsStandardDeviation, .5);
   assert.equal(mission.medianPoints, 100.5);
@@ -99,6 +99,34 @@ test("nur rankingfähige Kategorien beeinflussen Top-3-Hervorhebungen", () => {
   assert.equal(stats.rankings.averagePlacement.m4, undefined);
 });
 
+test("Max. Punkte rankt nur qualifizierte Kategorien absteigend", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [1, 2, 3], true, 100),
+    ...rows("m2", [1, 2, 3], true, 200),
+    ...rows("m3", [1, 2, 3], true, 300),
+    ...rows("m4", [1, 1], true, 900),
+  ], catalog);
+  assert.deepEqual(stats.rankings.highestScore, { m3: 1, m2: 2, m1: 3 });
+  assert.equal(stats.rankings.highestScore.m4, undefined);
+});
+
+test("Gleichstände bei Max. Punkte erhalten denselben Wettbewerbsrang", () => {
+  const first = rows("m1", [1, 2, 3], true, 100).map((row, index) => ({ ...row, points: [90, 95, 110][index] }));
+  const second = rows("m2", [1, 2, 3], true, 100).map((row, index) => ({ ...row, points: [80, 100, 110][index] }));
+  const third = rows("m3", [1, 2, 3], true, 100).map((row, index) => ({ ...row, points: [70, 90, 100][index] }));
+  const stats = calculateMissionStats([...first, ...second, ...third], catalog);
+  assert.deepEqual(stats.rankings.highestScore, { m1: 1, m2: 1, m3: 3 });
+});
+
+test("Ohne Mission zeigt seinen Anteil an allen bestätigten Partien", () => {
+  const kept = rows("m1", Array.from({ length: 46 }, () => 2));
+  const without = rows("m2", [3, 4], false);
+  const stats = calculateMissionStats([...kept, ...without], catalog);
+  assert.equal(stats.rows.find((row) => row.isWithoutMission)?.keptRate, 2 / 48);
+  assert.equal(stats.rows.find((row) => row.isTotal)?.keptRate, 46 / 48);
+  assert.equal(calculateMissionStats([], catalog).rows.find((row) => row.isWithoutMission)?.keptRate, null);
+});
+
 test("Ohne Mission ist ab drei Partien rankingfähig und darunter ungerankt", () => {
   const qualified = calculateMissionStats([...rows("m1", [2, 2, 2]), ...rows("m2", [1, 1, 1], false)], catalog);
   assert.equal(qualified.rows.find((row) => row.isWithoutMission)?.missionRank, 1);
@@ -165,7 +193,7 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.match(page, /MissionFeature label="Beste Mission"/);
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
   assert.match(page, /<dt>Median Punkte<\/dt><dd>\{pointsNumber\(mission\.medianPoints\)\}<\/dd>/);
-  assert.match(page, /row\.highestScore \? <Link/);
+  assert.match(page, /<MissionValue rank=\{missions\.rankings\.highestScore\[row\.id\]\}>\{row\.highestScore \? <Link/);
   assert.match(page, /<th className=\{styles\.missionRankHeader\}>Rang<\/th><th>Mission<\/th>/);
   assert.match(page, /missionRankLabel\(row\.missionRank\)/);
   assert.match(page, /const missionRankMarks = \{ 1: "🏆", 2: "🥈", 3: "🥉" \}/);
@@ -173,7 +201,10 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.match(page, /missions\.rankings\.wins\[row\.id\]/);
   assert.match(page, /missions\.rankings\.winRate\[row\.id\]/);
   assert.match(page, /missions\.rankings\.medianPoints\[row\.id\]/);
-  assert.match(page, /missions\.rankings\.keptRate\[row\.id\]/);
+  assert.doesNotMatch(page, /missions\.rankings\.keptRate/);
+  assert.match(page, /<td>\{percent\(row\.keptRate\)\}<\/td>/);
+  assert.doesNotMatch(page, /row\.isWithoutMission \? "—" : percent\(row\.keptRate\)/);
+  assert.match(page, /where: \{ game: \{ status: GameStatus\.CONFIRMED, deletedAt: null \} \}/);
   assert.match(css, /\.rank1\{background:#f9d966/);
   assert.match(css, /\.rank2\{background:#e3e6e8/);
   assert.match(css, /\.rank3\{background:#f3e2d3/);
