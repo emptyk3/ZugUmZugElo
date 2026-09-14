@@ -1,11 +1,12 @@
 import { GameStatus } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerAliasLink from "@/components/PlayerAliasLink";
 import { formatElo, formatEloChange } from "@/lib/format/elo";
 import { prisma } from "@/lib/prisma";
-import { calculateMissionStats, type MissionStat } from "@/lib/players/mission-stats";
+import { calculateMissionStats, type MissionHighlightRank, type MissionStat } from "@/lib/players/mission-stats";
 import { calculateOpponentStats, type OpponentStat } from "@/lib/players/opponent-stats";
 import { calculateProfileStats } from "@/lib/players/profile-stats";
 import EloChart from "./EloChart";
@@ -34,6 +35,11 @@ function MissionFeature({ label, mission }: { label: string; mission: MissionSta
 
 const missionRankMarks = { 1: "🏆", 2: "🥈", 3: "🥉" } as const;
 const missionRankLabel = (rank: number | null) => rank === null ? "" : rank <= 3 ? missionRankMarks[rank as 1 | 2 | 3] : `${rank}.`;
+
+function MissionValue({ rank, showMedal = true, goldPairSide, children }: { rank?: MissionHighlightRank; showMedal?: boolean; goldPairSide?: "start" | "end"; children: ReactNode }) {
+  const classes = [rank ? styles[`rank${rank}` as "rank1" | "rank2" | "rank3"] : undefined, rank === 1 && goldPairSide ? styles[goldPairSide === "start" ? "goldPairStart" : "goldPairEnd"] : undefined].filter(Boolean).join(" ") || undefined;
+  return <td className={classes}>{rank && showMedal && <span aria-label={`Platz ${rank}`} title={`Platz ${rank}`}>{missionRankMarks[rank]}</span>}{children}</td>;
+}
 
 export default async function PublicPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -104,7 +110,7 @@ export default async function PublicPlayerPage({ params }: { params: Promise<{ i
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Nach Aufgabe</span><h2>Missionsstatistik</h2></div></div>
       <div className={styles.highlights}><MissionFeature label="Beste Mission" mission={missions.best} /><MissionFeature label="Schlechteste Mission" mission={missions.worst} /></div>
-      <div className={`${styles.tableWrap} ${styles.missionTableWrap}`}><table><colgroup><col className={styles.missionRankColumn} /><col className={styles.missionNameColumn} /><col span={10} /></colgroup><thead><tr><th className={styles.missionRankHeader}>Rang</th><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th className={styles.sigmaHeader}>σ</th><th>Median Punkte</th><th>Ø Punkte</th><th className={styles.sigmaHeader}>σ</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><td className={styles.missionRankCell}>{missionRankLabel(row.missionRank)}</td><th>{row.name}</th><td>{row.games}</td><td>{row.wins}</td><td>{percent(row.winRate)}</td><td>{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</td><td>{missionDeviation(row.placementStandardDeviation, 2)}</td><td>{pointsNumber(row.medianPoints)}</td><td>{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</td><td>{missionDeviation(row.pointsStandardDeviation, 1)}</td><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><td>{row.isWithoutMission ? "—" : percent(row.keptRate)}</td></tr>)}</tbody></table></div>
+      <div className={`${styles.tableWrap} ${styles.missionTableWrap}`}><table><colgroup><col className={styles.missionRankColumn} /><col className={styles.missionNameColumn} /><col span={10} /></colgroup><thead><tr><th className={styles.missionRankHeader}>Rang</th><th>Mission</th><th>Spiele</th><th>Siege</th><th>Winrate</th><th>Ø Platz</th><th className={styles.sigmaHeader}>σ</th><th>Median Punkte</th><th>Ø Punkte</th><th className={styles.sigmaHeader}>σ</th><th>Max. Punkte</th><th>% behalten</th></tr></thead><tbody>{missions.rows.map((row) => <tr key={row.id}><td className={styles.missionRankCell}>{missionRankLabel(row.missionRank)}</td><th>{row.name}</th><td>{row.games}</td><MissionValue rank={missions.rankings.wins[row.id]}>{row.wins}</MissionValue><MissionValue rank={missions.rankings.winRate[row.id]}>{percent(row.winRate)}</MissionValue><MissionValue rank={missions.rankings.averagePlacement[row.id]} goldPairSide="start">{row.averagePlacement === null ? "—" : number(row.averagePlacement, 2)}</MissionValue><MissionValue rank={missions.rankings.averagePlacement[row.id]} showMedal={false} goldPairSide="end">{missionDeviation(row.placementStandardDeviation, 2)}</MissionValue><MissionValue rank={missions.rankings.medianPoints[row.id]}>{pointsNumber(row.medianPoints)}</MissionValue><MissionValue rank={missions.rankings.averagePoints[row.id]} goldPairSide="start">{row.averagePoints === null ? "—" : number(row.averagePoints, 1)}</MissionValue><MissionValue rank={missions.rankings.averagePoints[row.id]} showMedal={false} goldPairSide="end">{missionDeviation(row.pointsStandardDeviation, 1)}</MissionValue><td>{row.highestScore ? <Link href={`/partien/${row.highestScore.gameId}`}>{row.highestScore.value}</Link> : "—"}</td><MissionValue rank={missions.rankings.keptRate[row.id]}>{row.isWithoutMission ? "—" : percent(row.keptRate)}</MissionValue></tr>)}</tbody></table></div>
     </section>
 
     <section className={styles.card}><div className={styles.sectionHead}><div><span>Direktvergleich</span><h2>Gegnerstatistik</h2></div></div><div className={styles.opponentHighlights}><OpponentFeature label="Lieblingsgegner" opponent={opponents.favorite} /><OpponentFeature label="Erzfeind" opponent={opponents.nemesis} /></div>

@@ -11,7 +11,7 @@ const rows = (missionId: string, placements: number[], kept = true, points = 100
 test("Tabelle enthält Gesamt ohne Rang sowie sechs Missionen und Ohne Mission", () => {
   const result = calculateMissionStats([], catalog);
   assert.deepEqual(result.rows.map((row) => row.name), ["Gesamt", ...catalog.map((mission) => mission.name), "Ohne Mission"]);
-  assert.equal(result.rows[0].missionRank, null);
+  assert.ok(result.rows.every((row) => row.missionRank === null));
 });
 
 test("behaltene Mission zählt nur in ihrer Mission und nicht behaltene ausschließlich in Ohne Mission", () => {
@@ -74,6 +74,51 @@ test("Missionen einschließlich Ohne Mission werden nach Leistung sortiert und f
   ]);
 });
 
+test("Kategorien mit null, einer oder zwei Partien bleiben ungerankt und folgen alphabetisch am Ende", () => {
+  const stats = calculateMissionStats([
+    ...rows("m2", [1]),
+    ...rows("m3", [1, 2]),
+    ...rows("m4", [2, 2, 2]),
+    ...rows("m5", [1, 1], false),
+  ], catalog);
+  assert.deepEqual(stats.rows.map((row) => [row.id, row.missionRank]), [
+    ["total", null], ["m4", 1], ["m1", null], ["m2", null], ["m3", null], ["m5", null], ["m6", null], ["without-mission", null],
+  ]);
+});
+
+test("nur rankingfähige Kategorien beeinflussen Top-3-Hervorhebungen", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [1, 1, 1], true, 100),
+    ...rows("m2", [1, 2, 2], true, 90),
+    ...rows("m3", [4, 4, 4], true, 200),
+    ...rows("m4", [1, 1], true, 500),
+  ], catalog);
+  assert.deepEqual(stats.rankings.wins, { m1: 1, m2: 2, m3: 3 });
+  assert.equal(stats.rankings.averagePoints.m3, 1);
+  assert.equal(stats.rankings.averagePoints.m4, undefined);
+  assert.equal(stats.rankings.averagePlacement.m4, undefined);
+});
+
+test("Ohne Mission ist ab drei Partien rankingfähig und darunter ungerankt", () => {
+  const qualified = calculateMissionStats([...rows("m1", [2, 2, 2]), ...rows("m2", [1, 1, 1], false)], catalog);
+  assert.equal(qualified.rows.find((row) => row.isWithoutMission)?.missionRank, 1);
+  const unqualified = calculateMissionStats([...rows("m1", [2, 2, 2]), ...rows("m2", [1, 1], false)], catalog);
+  const without = unqualified.rows.find((row) => row.isWithoutMission)!;
+  assert.equal(without.missionRank, null);
+  assert.equal(unqualified.rows.at(-1)?.id, "without-mission");
+});
+
+test("unqualifizierte Kategorien können weder beste noch schlechteste Mission werden", () => {
+  const stats = calculateMissionStats([
+    ...rows("m1", [2, 2, 2]),
+    ...rows("m2", [3, 3, 3]),
+    ...rows("m3", [1, 1]),
+    ...rows("m4", [5, 5]),
+  ], catalog);
+  assert.equal(stats.best?.id, "m1");
+  assert.equal(stats.worst?.id, "m2");
+});
+
 test("vollständige Leistungsgleichstände teilen sich den Rang wie in der globalen Statistik", () => {
   const stats = calculateMissionStats([
     ...rows("m1", [1, 2, 3], true, 100),
@@ -82,6 +127,8 @@ test("vollständige Leistungsgleichstände teilen sich den Rang wie in der globa
   ], catalog);
   const ranked = stats.rows.filter((row) => ["m1", "m2", "m3"].includes(row.id));
   assert.deepEqual(ranked.map((row) => [row.id, row.missionRank]), [["m1", 1], ["m2", 1], ["m3", 3]]);
+  assert.deepEqual(stats.rankings.averagePlacement, { m1: 1, m2: 1, m3: 3 });
+  assert.deepEqual(stats.rankings.winRate, { m1: 1, m2: 1, m3: 3 });
 });
 
 test("Beste und schlechteste Mission werden primär über Ø Platzierung statt Winrate gewählt", () => {
@@ -112,8 +159,8 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.match(page, /const missionDeviation = \(value: number \| null, digits: number\) => value === null \? "—" : `± \$\{fixedNumber\(value, digits\)\}`/);
   assert.match(page, /<dt>σ Platzierung<\/dt><dd>\{missionDeviation\(mission\.placementStandardDeviation, 2\)\}<\/dd>/);
   assert.match(page, /<dt>σ Punkte<\/dt><dd>\{missionDeviation\(mission\.pointsStandardDeviation, 1\)\}<\/dd>/);
-  assert.match(page, /<td>\{missionDeviation\(row\.placementStandardDeviation, 2\)\}<\/td>/);
-  assert.match(page, /<td>\{missionDeviation\(row\.pointsStandardDeviation, 1\)\}<\/td>/);
+  assert.match(page, /<MissionValue rank=\{missions\.rankings\.averagePlacement\[row\.id\]\} showMedal=\{false\} goldPairSide="end">\{missionDeviation\(row\.placementStandardDeviation, 2\)\}<\/MissionValue>/);
+  assert.match(page, /<MissionValue rank=\{missions\.rankings\.averagePoints\[row\.id\]\} showMedal=\{false\} goldPairSide="end">\{missionDeviation\(row\.pointsStandardDeviation, 1\)\}<\/MissionValue>/);
   assert.doesNotMatch(page, /row\.(?:placement|points)StandardDeviation === null \? "Keine Daten"/);
   assert.match(page, /MissionFeature label="Beste Mission"/);
   assert.match(page, /MissionFeature label="Schlechteste Mission"/);
@@ -123,4 +170,13 @@ test("Profil-Missionsstatistik zeigt kleine σ-Spalten und kennzeichnet alle Str
   assert.match(page, /missionRankLabel\(row\.missionRank\)/);
   assert.match(page, /const missionRankMarks = \{ 1: "🏆", 2: "🥈", 3: "🥉" \}/);
   assert.match(css, /\.missionRankColumn\{width:42px\}/);
+  assert.match(page, /missions\.rankings\.wins\[row\.id\]/);
+  assert.match(page, /missions\.rankings\.winRate\[row\.id\]/);
+  assert.match(page, /missions\.rankings\.medianPoints\[row\.id\]/);
+  assert.match(page, /missions\.rankings\.keptRate\[row\.id\]/);
+  assert.match(css, /\.rank1\{background:#f9d966/);
+  assert.match(css, /\.rank2\{background:#e3e6e8/);
+  assert.match(css, /\.rank3\{background:#f3e2d3/);
+  assert.match(css, /\.goldPairStart\{box-shadow:inset 1px 0/);
+  assert.match(css, /\.goldPairEnd\{box-shadow:inset -1px 0/);
 });

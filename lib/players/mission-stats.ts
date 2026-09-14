@@ -1,4 +1,5 @@
 import { median } from "../statistics/distribution.ts";
+import { equalNumber } from "../statistics/types.ts";
 
 export type MissionDefinition = { id: string; name: string; sortOrder: number };
 export type MissionParticipation = {
@@ -14,6 +15,12 @@ export type MissionStat = {
   kept: number; drawn: number; keptRate: number | null; isWithoutMission: boolean; isTotal: boolean;
   missionRank: number | null;
 };
+
+export type MissionHighlightMetric = "wins" | "winRate" | "averagePlacement" | "medianPoints" | "averagePoints" | "keptRate";
+export type MissionHighlightRank = 1 | 2 | 3;
+export type MissionHighlightRankings = Record<MissionHighlightMetric, Record<string, MissionHighlightRank>>;
+
+const highlightMetrics: MissionHighlightMetric[] = ["wins", "winRate", "averagePlacement", "medianPoints", "averagePoints", "keptRate"];
 
 const populationStandardDeviation = (values: number[], mean: number | null) => mean === null
   ? null
@@ -49,7 +56,26 @@ const worstOrder = (a: MissionStat, b: MissionStat) =>
   (a.averagePoints ?? Infinity) - (b.averagePoints ?? Infinity) || a.name.localeCompare(b.name, "de");
 
 const samePerformance = (a: MissionStat, b: MissionStat) =>
-  a.averagePlacement === b.averagePlacement && a.winRate === b.winRate && a.averagePoints === b.averagePoints;
+  equalNumber(a.averagePlacement!, b.averagePlacement!) && equalNumber(a.winRate!, b.winRate!) && equalNumber(a.averagePoints!, b.averagePoints!);
+
+function createHighlightRankings(rows: MissionStat[]): MissionHighlightRankings {
+  return Object.fromEntries(highlightMetrics.map((metric) => {
+    const candidates = rows.flatMap((row) => {
+      const value = row[metric];
+      return typeof value === "number" && Number.isFinite(value) ? [{ id: row.id, value }] : [];
+    });
+    candidates.sort((left, right) => (metric === "averagePlacement" ? left.value - right.value : right.value - left.value) || left.id.localeCompare(right.id));
+    const ranks: Record<string, MissionHighlightRank> = {};
+    let previousValue: number | null = null;
+    let rank = 0;
+    candidates.forEach((candidate, index) => {
+      if (previousValue === null || !equalNumber(candidate.value, previousValue)) rank = index + 1;
+      previousValue = candidate.value;
+      if (rank <= 3) ranks[candidate.id] = rank as MissionHighlightRank;
+    });
+    return [metric, ranks];
+  })) as MissionHighlightRankings;
+}
 
 export function calculateMissionStats(rows: MissionParticipation[], catalog: MissionDefinition[] = []) {
   const definitions = catalog.length ? [...catalog] : [...new Map(rows.map((row) => [row.mission.id, row.mission])).values()];
@@ -62,18 +88,19 @@ export function calculateMissionStats(rows: MissionParticipation[], catalog: Mis
   const withoutMission = summarize("without-mission", "Ohne Mission", Number.MAX_SAFE_INTEGER, rows.filter((row) => !row.missionKept), 0, { isWithoutMission: true });
   const total = summarize("total", "Gesamt", -1, rows, rows.length, { isTotal: true });
   const categories = [...missionRows, withoutMission];
-  const sortedCategories = [...categories].sort(bestOrder);
+  const qualified = categories.filter((row) => row.games >= 3).sort(bestOrder);
+  const unqualified = categories.filter((row) => row.games < 3).sort((a, b) => a.name.localeCompare(b.name, "de") || a.id.localeCompare(b.id));
   let previous: MissionStat | null = null;
   let missionRank = 0;
-  const rankedCategories = sortedCategories.map((row, index) => {
+  const rankedCategories = qualified.map((row, index) => {
     if (!previous || !samePerformance(row, previous)) missionRank = index + 1;
     previous = row;
     return { ...row, missionRank };
   });
-  const qualified = categories.filter((row) => row.games >= 3);
   const hasEnoughHighlights = qualified.length >= 2;
   return {
-    rows: [total, ...rankedCategories],
+    rows: [total, ...rankedCategories, ...unqualified],
+    rankings: createHighlightRankings(qualified),
     best: hasEnoughHighlights ? [...qualified].sort(bestOrder)[0] : null,
     worst: hasEnoughHighlights ? [...qualified].sort(worstOrder)[0] : null,
   };
