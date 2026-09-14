@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildMissionStatisticsView, filterMissionGames, resolveMissionPlayerCountFilter } from "./mission-view.ts";
+import { buildMissionStatisticsView, filterMissionGames, missionChartMaximumPlacement, resolveMissionPlayerCountFilter } from "./mission-view.ts";
 import type { MissionCatalogItem, StatisticsGame, StatisticsParticipation } from "./types.ts";
 
 const catalog: MissionCatalogItem[] = [
@@ -34,6 +34,15 @@ test("Gesamt ist Standard und enthält Vierer- und Fünferpartien", () => {
   assert.deepEqual(view.games.map((entry) => entry.id), ["four", "five"]);
   assert.deepEqual(view.timeline.entries.map((entry) => entry.gameId), ["four", "five"]);
   assert.equal(view.statistics.totalDrawn, 9);
+});
+
+test("Y-Achsenmaximum folgt ausschließlich dem Spieleranzahlfilter", () => {
+  assert.equal(missionChartMaximumPlacement("gesamt"), 5);
+  assert.equal(missionChartMaximumPlacement("4"), 4);
+  assert.equal(missionChartMaximumPlacement("5"), 5);
+  assert.equal(buildMissionStatisticsView(games, catalog, "gesamt").chartMaximumPlacement, 5);
+  assert.equal(buildMissionStatisticsView(games, catalog, "4").chartMaximumPlacement, 4);
+  assert.equal(buildMissionStatisticsView(games, catalog, "5").chartMaximumPlacement, 5);
 });
 
 test("Viererfilter berechnet alle Missionswerte ausschließlich aus Viererpartien", () => {
@@ -90,5 +99,14 @@ test("Mission-Unterreiter sind URL-basiert und verändern keine anderen Statisti
   assert.match(page, /calculatePlayerStatistics\(publicPlayers, games\)/);
   assert.match(page, /calculateGameStatistics\(games\)/);
   assert.match(page, /view\.games\.length === 0 \? .*Noch keine Daten vorhanden\./);
+  assert.match(page, /maximumPlacement=\{view\.chartMaximumPlacement\}/);
   assert.match(css, /\.missionSubtabs\{display:flex;flex-wrap:wrap/);
+});
+
+test("Platzierungsachse bleibt invertiert und zeigt ausschließlich ganzzahlige Filterticks", () => {
+  const chart = readFileSync("app/statistik/MissionPlacementTimelineChart.tsx", "utf8");
+  assert.match(chart, /const yTicks = Array\.from\(\{ length: maximumPlacement \}, \(_, index\) => index \+ 1\)/);
+  assert.match(chart, /<YAxis domain=\{\[1, maximumPlacement\]\} reversed ticks=\{yTicks\} allowDecimals=\{false\}/);
+  assert.deepEqual(Array.from({ length: missionChartMaximumPlacement("4") }, (_, index) => index + 1), [1, 2, 3, 4]);
+  assert.doesNotMatch(JSON.stringify(Array.from({ length: missionChartMaximumPlacement("4") }, (_, index) => index + 1)), /5/);
 });

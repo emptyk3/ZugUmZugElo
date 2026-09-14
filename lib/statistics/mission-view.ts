@@ -14,11 +14,16 @@ export function filterMissionGames(games: StatisticsGame[], filter: MissionPlaye
   return games.filter((game) => game.participants.length === playerCount);
 }
 
+export function missionChartMaximumPlacement(filter: MissionPlayerCountFilter): 4 | 5 {
+  return filter === "4" ? 4 : 5;
+}
+
 export function buildMissionStatisticsView(games: StatisticsGame[], catalog: MissionCatalogItem[], filter: MissionPlayerCountFilter) {
   const filteredGames = filterMissionGames(games, filter);
   return {
     games: filteredGames,
     statistics: calculateMissionStatistics(filteredGames, catalog),
     timeline: buildMissionPlacementTimeline(filteredGames, catalog),
+    chartMaximumPlacement: missionChartMaximumPlacement(filter),
   };
 }
