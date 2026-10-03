@@ -16,6 +16,23 @@ test("aktuelle Elo nutzt dichte geteilte Top-3-Ränge", () => {
   assert.deepEqual(top.map((p) => [p.id, p.rank]), [["a", 1], ["b", 1], ["c", 2], ["d", 3]]);
 });
 
+test("Partienrangliste sortiert absteigend und verwendet dichte Ränge mit stabilem Alias-Tiebreak", () => {
+  const result = calculatePlayerStatistics(players, [
+    game(1, [{ id: "b", place: 1, points: 100, change: 0 }, { id: "a", place: 2, points: 90, change: 0 }]),
+    game(2, [{ id: "b", place: 1, points: 100, change: 0 }, { id: "a", place: 2, points: 90, change: 0 }]),
+    game(3, [{ id: "c", place: 1, points: 100, change: 0 }]),
+  ]);
+  assert.deepEqual(result.mostGames.map((row) => [row.id, row.games, row.rank]), [
+    ["a", 2, 1], ["b", 2, 1], ["c", 1, 2], ["d", 0, 3],
+  ]);
+});
+
+test("jede bestätigte Partie zählt je Spieler höchstens einmal", () => {
+  const duplicate = game(1, [{ id: "a", place: 1, points: 100, change: 0 }, { id: "a", place: 2, points: 90, change: 0 }]);
+  const result = calculatePlayerStatistics(players, [duplicate]);
+  assert.equal(result.mostGames.find((row) => row.id === "a")?.games, 1);
+});
+
 test("höchste Elo behält die erste stabile Erreichung", () => {
   const result = calculatePlayerStatistics(players, [game(1, [{ id: "a", place: 1, points: 100, change: 50 }]), game(2, [{ id: "a", place: 1, points: 100, change: 50 }, { id: "b", place: 2, points: 100, change: 50 }])]);
   assert.equal(result.highestAllTime.find((r) => r.id === "a")?.gameId, "g1");
@@ -83,8 +100,10 @@ test("Spielerstatistik entfernt Höchstpunktzahl und Zwischenüberschrift und ve
   const playerArea = page.slice(page.indexOf("function PlayersArea"), page.indexOf("function GamesArea"));
   assert.doesNotMatch(playerArea, /Höchste Punktzahl|highestScore|Serienrekorde|groupTitle/);
   assert.equal(playerArea.match(/styles\.cardGrid/g)?.length, 1);
-  const headings = ["Höchste aktuelle Elo", "Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Höchste Median-Punkte", "Beste Ø-Platzierung", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
+  const headings = ["Höchste aktuelle Elo", "Meiste gespielte Partien", "Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Höchste Median-Punkte", "Beste Ø-Platzierung", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
   assert.deepEqual([...playerArea.matchAll(/<h2>([^<]+)<\/h2>/g)].map((match) => match[1]), headings);
   assert.match(playerArea, /highestMedianPoints/);
   assert.match(playerArea, /bestAveragePlacement/);
+  assert.match(playerArea, /statistics\.mostGames\.map\(\(row\) => <li key=\{row\.id\}><b>#\{row\.rank\}<\/b><Person row=\{row\} \/><strong>\{row\.games\} Partien<\/strong>/);
+  assert.match(page, /where: \{ status: GameStatus\.CONFIRMED, deletedAt: null \}/);
 });
