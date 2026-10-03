@@ -16,11 +16,20 @@ export type SeriesRecord = PlayerRef & {
 };
 
 const playerRef = (row: OwnGame): PlayerRef => ({ id: row.row.playerId, alias: row.row.alias, imageUrl: row.row.imageUrl });
-const selectBest = <T>(rows: T[], compare: (a: T, b: T) => number) => {
-  if (!rows.length) return [];
+const selectTopRanks = <T>(rows: T[], compare: (a: T, b: T) => number, sameRank: (a: T, b: T) => boolean = (a, b) => compare(a, b) === 0) => {
   const sorted = [...rows].sort(compare);
-  const best = sorted[0];
-  return sorted.filter((row) => compare(row, best) === 0);
+  let previous: T | undefined;
+  let rank = 0;
+  return sorted.map((row) => {
+    if (previous === undefined || !sameRank(row, previous)) rank += 1;
+    previous = row;
+    return { ...row, rank };
+  }).filter((row) => row.rank <= 3);
+};
+
+const bestPerPlayer = <T extends PlayerRef>(rows: T[], compare: (a: T, b: T) => number) => {
+  const seen = new Set<string>();
+  return [...rows].sort(compare).filter((row) => seen.has(row.id) ? false : (seen.add(row.id), true));
 };
 
 function buildSeries(rows: OwnGame[], accepts: (row: OwnGame) => boolean): SeriesRecord[] {
@@ -89,10 +98,9 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
     return { ...player, rank };
   }).filter((player) => player.rank <= 3);
 
-  const allRows = [...byPlayer.values()].flat();
-  const allTime = selectBest(allRows, (a, b) => b.row.ratingAfter - a.row.ratingAfter)
-    .filter((row, index, list) => list.findIndex((item) => item.row.playerId === row.row.playerId) === index)
+  const allTimeByPlayer = [...byPlayer.values()].map((rows) => rows.reduce((best, row) => row.row.ratingAfter > best.row.ratingAfter ? row : best))
     .map((row) => ({ ...playerRef(row), value: row.row.ratingAfter, gameId: row.game.id, playedAt: row.game.playedAt }));
+  const highestAllTime = selectTopRanks(allTimeByPlayer, (a, b) => b.value - a.value || a.alias.localeCompare(b.alias, "de"), (a, b) => equalNumber(a.value, b.value));
 
   const summaries = [...byPlayer.values()].map((rows) => {
     const wins = rows.filter((item) => item.row.placement === 1).length;
@@ -103,18 +111,22 @@ export function calculatePlayerStatistics(players: StatisticsPlayer[], games: St
       averagePlacement: rows.reduce((sum, item) => sum + item.row.placement, 0) / rows.length,
     };
   });
-  const highestWinRate = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.winRate - a.winRate || b.games - a.games || b.wins - a.wins);
-  const highestAveragePoints = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.averagePoints - a.averagePoints || b.games - a.games);
-  const highestMedianPoints = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => b.medianPoints - a.medianPoints || b.averagePoints - a.averagePoints || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
-  const bestAveragePlacement = selectBest(summaries.filter((row) => row.games >= 5), (a, b) => a.averagePlacement - b.averagePlacement || b.winRate - a.winRate || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
+  const highestWinRate = selectTopRanks(summaries.filter((row) => row.games >= 5), (a, b) => b.winRate - a.winRate || b.games - a.games || b.wins - a.wins);
+  const highestAveragePoints = selectTopRanks(summaries.filter((row) => row.games >= 5), (a, b) => b.averagePoints - a.averagePoints || b.games - a.games);
+  const highestMedianPoints = selectTopRanks(summaries.filter((row) => row.games >= 5), (a, b) => b.medianPoints - a.medianPoints || b.averagePoints - a.averagePoints || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
+  const bestAveragePlacement = selectTopRanks(summaries.filter((row) => row.games >= 5), (a, b) => a.averagePlacement - b.averagePlacement || b.winRate - a.winRate || b.games - a.games || a.alias.localeCompare(b.alias, "de"));
 
   const winningSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.placement === 1));
   const nonLossSeries = [...byPlayer.values()].flatMap((rows) => buildSeries(rows, (item) => item.row.ratingChange >= 0));
-  const longestWinningStreak = selectBest(winningSeries, (a, b) => b.games - a.games || b.averagePoints - a.averagePoints);
-  const longestNonLossStreak = selectBest(nonLossSeries, (a, b) => b.games - a.games || b.totalGain - a.totalGain || b.averagePoints - a.averagePoints);
-  const greatestNonLossGain = selectBest(nonLossSeries, (a, b) => b.totalGain - a.totalGain || a.games - b.games || b.averagePoints - a.averagePoints);
-  const bestFiveGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 5)), (a, b) => b.value - a.value);
-  const bestTenGameGain = selectBest([...byPlayer.values()].flatMap((rows) => windows(rows, 10)), (a, b) => b.value - a.value);
+  const winningOrder = (a: SeriesRecord, b: SeriesRecord) => b.games - a.games || b.averagePoints - a.averagePoints;
+  const nonLossOrder = (a: SeriesRecord, b: SeriesRecord) => b.games - a.games || b.totalGain - a.totalGain || b.averagePoints - a.averagePoints;
+  const nonLossGainOrder = (a: SeriesRecord, b: SeriesRecord) => b.totalGain - a.totalGain || a.games - b.games || b.averagePoints - a.averagePoints;
+  const windowOrder = (a: SeriesRecord, b: SeriesRecord) => b.value - a.value;
+  const longestWinningStreak = selectTopRanks(bestPerPlayer(winningSeries, winningOrder), winningOrder);
+  const longestNonLossStreak = selectTopRanks(bestPerPlayer(nonLossSeries, nonLossOrder), nonLossOrder);
+  const greatestNonLossGain = selectTopRanks(bestPerPlayer(nonLossSeries, nonLossGainOrder), nonLossGainOrder);
+  const bestFiveGameGain = selectTopRanks(bestPerPlayer([...byPlayer.values()].flatMap((rows) => windows(rows, 5)), windowOrder), windowOrder);
+  const bestTenGameGain = selectTopRanks(bestPerPlayer([...byPlayer.values()].flatMap((rows) => windows(rows, 10)), windowOrder), windowOrder);
 
-  return { currentTop, mostGames, highestAllTime: allTime, highestWinRate, highestAveragePoints, highestMedianPoints, bestAveragePlacement, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
+  return { currentTop, mostGames, highestAllTime, highestWinRate, highestAveragePoints, highestMedianPoints, bestAveragePlacement, longestWinningStreak, longestNonLossStreak, greatestNonLossGain, bestFiveGameGain, bestTenGameGain };
 }

@@ -38,6 +38,18 @@ test("höchste Elo behält die erste stabile Erreichung", () => {
   assert.equal(result.highestAllTime.find((r) => r.id === "a")?.gameId, "g1");
 });
 
+test("höchste Elo aller Zeiten liefert dichte Top-3-Ränge je Spieler", () => {
+  const result = calculatePlayerStatistics(players, [game(1, [
+    { id: "a", place: 1, points: 100, change: 40, before: 1500 },
+    { id: "b", place: 2, points: 90, change: 30, before: 1500 },
+    { id: "c", place: 3, points: 80, change: 20, before: 1500 },
+    { id: "d", place: 4, points: 70, change: 10, before: 1500 },
+  ])]);
+  assert.deepEqual(result.highestAllTime.map((row) => [row.id, row.value, row.rank]), [
+    ["a", 1540, 1], ["b", 1530, 2], ["c", 1520, 3],
+  ]);
+});
+
 test("Winrate und Durchschnittspunkte verlangen fünf Partien und wenden Tiebreaker an", () => {
   const games = Array.from({ length: 6 }, (_, i) => game(i + 1, [{ id: "a", place: i < 5 ? 1 : 2, points: 100, change: 1 }, ...(i < 5 ? [{ id: "b", place: i < 4 ? 1 : 2, points: 100, change: 1 }] : [])]));
   const result = calculatePlayerStatistics(players, games);
@@ -95,15 +107,55 @@ test("gleitende Fünfer- und Zehnerfenster nutzen eigene Partien und verlinken d
   assert.equal(result.bestTenGameGain[0].firstGameId, "g1"); assert.equal(result.bestTenGameGain[0].games, 10);
 });
 
+test("Leistungsrekorde liefern Rang 1 bis 3 bei unveränderten Mindestmengen und Sortierrichtungen", () => {
+  const performanceGames = [
+    ...playerGames("a", [120, 120, 120, 120, 120], [4, 4, 4, 4, 4]),
+    ...playerGames("b", [110, 110, 110, 110, 110], [3, 3, 3, 3, 3], 6),
+    ...playerGames("c", [100, 100, 100, 100, 100], [2, 2, 2, 2, 2], 12),
+    ...playerGames("d", [90, 90, 90, 90, 90], [1, 1, 1, 1, 1], 18),
+  ];
+  const result = calculatePlayerStatistics(players, performanceGames);
+  assert.deepEqual(result.highestAveragePoints.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.highestMedianPoints.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.bestAveragePlacement.map((row) => [row.id, row.rank]), [["d", 1], ["c", 2], ["b", 3]]);
+  assert.equal(result.highestWinRate[0].id, "d");
+  assert.ok(result.highestWinRate.every((row) => row.games >= 5 && row.rank <= 3));
+});
+
+test("Serien- und Rolling-Rekorde liefern die drei besten Spieler nach bestehenden Vergleichen", () => {
+  const records: StatisticsGame[] = [];
+  const configs = [{ id: "a", gain: 4 }, { id: "b", gain: 3 }, { id: "c", gain: 2 }, { id: "d", gain: 1 }];
+  configs.forEach(({ id, gain }, playerIndex) => {
+    let rating = 1000;
+    for (let index = 0; index < 10; index += 1) {
+      records.push(game(playerIndex * 20 + index + 1, [{ id, place: index < 5 - playerIndex ? 1 : 2, points: 100, change: gain, before: rating }]));
+      rating += gain;
+    }
+  });
+  const result = calculatePlayerStatistics(players, records);
+  assert.deepEqual(result.longestWinningStreak.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.longestNonLossStreak.slice(0, 3).map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.greatestNonLossGain.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.bestFiveGameGain.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+  assert.deepEqual(result.bestTenGameGain.map((row) => [row.id, row.rank]), [["a", 1], ["b", 2], ["c", 3]]);
+});
+
 test("Spielerstatistik entfernt Höchstpunktzahl und Zwischenüberschrift und verwendet ein gemeinsames Rekordkarten-Grid", () => {
   const page = readFileSync("app/statistik/page.tsx", "utf8");
   const playerArea = page.slice(page.indexOf("function PlayersArea"), page.indexOf("function GamesArea"));
   assert.doesNotMatch(playerArea, /Höchste Punktzahl|highestScore|Serienrekorde|groupTitle/);
   assert.equal(playerArea.match(/styles\.cardGrid/g)?.length, 1);
-  const headings = ["Höchste aktuelle Elo", "Meiste gespielte Partien", "Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Höchste Median-Punkte", "Beste Ø-Platzierung", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
-  assert.deepEqual([...playerArea.matchAll(/<h2>([^<]+)<\/h2>/g)].map((match) => match[1]), headings);
+  assert.deepEqual([...playerArea.matchAll(/<h2>([^<]+)<\/h2>/g)].map((match) => match[1]), ["Höchste aktuelle Elo", "Meiste gespielte Partien"]);
+  const cardHeadings = ["Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Höchste Median-Punkte", "Beste Ø-Platzierung", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
+  assert.deepEqual([...playerArea.matchAll(/<RecordCard [^>]*title="([^"]+)"/g)].map((match) => match[1]), cardHeadings);
   assert.match(playerArea, /highestMedianPoints/);
   assert.match(playerArea, /bestAveragePlacement/);
-  assert.match(playerArea, /statistics\.mostGames\.map\(\(row\) => <li key=\{row\.id\}><b>#\{row\.rank\}<\/b><Person row=\{row\} \/><strong>\{row\.games\} Partien<\/strong>/);
+  assert.match(playerArea, /<RecordTopList rows=\{statistics\.mostGames\} value=\{\(row\) => `\$\{row\.games\} Partien`\}/);
+  assert.match(page, /function RecordTopList/);
+  assert.match(page, /function RecordCard/);
+  assert.match(playerArea, /<div className=\{styles\.topGrid\}><section className=\{styles\.topCard\}/);
   assert.match(page, /where: \{ status: GameStatus\.CONFIRMED, deletedAt: null \}/);
+  const css = readFileSync("app/statistik/page.module.css", "utf8");
+  assert.match(css, /\.topGrid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css, /@media\(max-width:760px\).*\.topGrid,\.cardGrid\{grid-template-columns:1fr\}/s);
 });
