@@ -146,6 +146,9 @@ test("Spielerstatistik entfernt Höchstpunktzahl und Zwischenüberschrift und ve
   assert.doesNotMatch(playerArea, /Höchste Punktzahl|highestScore|Serienrekorde|groupTitle/);
   assert.equal(playerArea.match(/styles\.cardGrid/g)?.length, 1);
   assert.deepEqual([...playerArea.matchAll(/<h2>([^<]+)<\/h2>/g)].map((match) => match[1]), ["Höchste aktuelle Elo", "Meiste gespielte Partien"]);
+  assert.doesNotMatch(playerArea, /Geteilte Werte erhalten denselben dichten Rang/);
+  assert.doesNotMatch(playerArea, /Bestätigte Partien; Gleichstände erhalten denselben dichten Rang/);
+  assert.doesNotMatch(playerArea, /Start-Elo zählt nicht als erspielter Rekord/);
   const cardHeadings = ["Höchste Elo aller Zeiten", "Höchste Winrate", "Höchste Ø-Punkte", "Höchste Median-Punkte", "Beste Ø-Platzierung", "Längste Winning Streak", "Längste Serie ohne Elo-Verlust", "Größtes Plus ohne Verlust", "Bestes Plus über 5 Partien", "Bestes Plus über 10 Partien"];
   assert.deepEqual([...playerArea.matchAll(/<RecordCard [^>]*title="([^"]+)"/g)].map((match) => match[1]), cardHeadings);
   assert.match(playerArea, /highestMedianPoints/);

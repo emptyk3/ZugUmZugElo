@@ -33,16 +33,16 @@ function RecordTopList<T extends RankedPlayerRecord>({ rows, value, details, emp
   return <ol className={`${styles.recordList} ${styles.rankedRecordList}`}>{rows.map((row, index) => <li key={`${row.id}-${index}`}><b className={styles.recordRank}>#{row.rank}</b><Person row={row} /><div className={styles.recordValue}><strong>{value(row)}</strong>{details?.(row)}</div></li>)}</ol>;
 }
 
-function RecordCard<T extends RankedPlayerRecord>({ eyebrow, title, rows, value, details, footer }: { eyebrow: string; title: string; rows: T[]; value: (row: T) => React.ReactNode; details?: (row: T) => React.ReactNode; footer?: React.ReactNode }) {
-  return <article className={styles.card}><span>{eyebrow}</span><h2>{title}</h2><RecordTopList rows={rows} value={value} details={details} />{footer}</article>;
+function RecordCard<T extends RankedPlayerRecord>({ eyebrow, title, rows, value, details }: { eyebrow: string; title: string; rows: T[]; value: (row: T) => React.ReactNode; details?: (row: T) => React.ReactNode }) {
+  return <article className={styles.card}><span>{eyebrow}</span><h2>{title}</h2><RecordTopList rows={rows} value={value} details={details} /></article>;
 }
 
 function PlayersArea({ statistics }: { statistics: ReturnType<typeof calculatePlayerStatistics> }) {
   return <div className={styles.area}>
-    <div className={styles.topGrid}><section className={styles.topCard}><div><span>Aktuelle Rangliste</span><h2>Höchste aktuelle Elo</h2><p>Geteilte Werte erhalten denselben dichten Rang; angezeigt werden alle Spieler der ersten drei Elo-Ränge.</p></div><RecordTopList rows={statistics.currentTop} value={(row) => `${formatElo(row.currentRating)} Elo`} empty="Noch keine aktiven Spieler." /></section>
-    <section className={styles.topCard}><div><span>Partienrangliste</span><h2>Meiste gespielte Partien</h2><p>Bestätigte Partien; Gleichstände erhalten denselben dichten Rang.</p></div><RecordTopList rows={statistics.mostGames} value={(row) => `${row.games} Partien`} empty="Noch keine Spieler vorhanden." /></section></div>
+    <div className={styles.topGrid}><section className={styles.topCard}><div><span>Aktuelle Rangliste</span><h2>Höchste aktuelle Elo</h2></div><RecordTopList rows={statistics.currentTop} value={(row) => `${formatElo(row.currentRating)} Elo`} empty="Noch keine aktiven Spieler." /></section>
+    <section className={styles.topCard}><div><span>Partienrangliste</span><h2>Meiste gespielte Partien</h2></div><RecordTopList rows={statistics.mostGames} value={(row) => `${row.games} Partien`} empty="Noch keine Spieler vorhanden." /></section></div>
     <div className={styles.cardGrid}>
-      <RecordCard eyebrow="Karriererekord" title="Höchste Elo aller Zeiten" rows={statistics.highestAllTime} value={(row) => `${formatElo(row.value)} Elo`} details={(row) => row.gameId && <Link href={`/partien/${row.gameId}`}>{row.playedAt ? date(row.playedAt) : "Partie"}</Link>} footer={<small>Nur gespeicherte ratingAfter-Werte nach bestätigten Partien; Start-Elo zählt nicht als erspielter Rekord.</small>} />
+      <RecordCard eyebrow="Karriererekord" title="Höchste Elo aller Zeiten" rows={statistics.highestAllTime} value={(row) => `${formatElo(row.value)} Elo`} details={(row) => row.gameId && <Link href={`/partien/${row.gameId}`}>{row.playedAt ? date(row.playedAt) : "Partie"}</Link>} />
       <RecordCard eyebrow="Mindestens 5 Partien" title="Höchste Winrate" rows={statistics.highestWinRate} value={(row) => percent(row.winRate)} details={(row) => <small>{row.wins} Siege · {row.games} Partien</small>} />
       <RecordCard eyebrow="Mindestens 5 Partien" title="Höchste Ø-Punkte" rows={statistics.highestAveragePoints} value={(row) => number(row.averagePoints, 1)} details={(row) => <small>{row.games} Partien</small>} />
       <RecordCard eyebrow="Mindestens 5 Partien" title="Höchste Median-Punkte" rows={statistics.highestMedianPoints} value={(row) => number(row.medianPoints, 1)} details={(row) => <small>{row.games} Partien</small>} />
